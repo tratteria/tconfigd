@@ -1,7 +1,7 @@
 package service
 
 import (
-	"github.com/tratteria/tratD/pkg/rules"
+	"github.com/tratteria/tratd/pkg/rules"
 	"go.uber.org/zap"
 )
 

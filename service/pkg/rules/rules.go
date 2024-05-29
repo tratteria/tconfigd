@@ -1,7 +1,7 @@
 package rules
 
 import (
-	"github.com/tratteria/tratD/pkg/apperrors"
+	"github.com/tratteria/tratd/pkg/apperrors"
 )
 
 type Rules struct {

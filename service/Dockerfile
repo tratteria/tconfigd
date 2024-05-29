@@ -8,7 +8,7 @@ RUN go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o tratD ./cmd
+RUN CGO_ENABLED=0 GOOS=linux go build -o tratd ./cmd
 
 # Second stage: the runtime environment
 FROM alpine:latest
@@ -17,6 +17,6 @@ RUN apk --no-cache add ca-certificates
 
 WORKDIR /app
 
-COPY --from=builder /app/tratD .
+COPY --from=builder /app/tratd .
 
-ENTRYPOINT ["./tratD"]
+ENTRYPOINT ["./tratd"]
