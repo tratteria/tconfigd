@@ -1,0 +1,43 @@
+{
+    "type": "TraT-Verification-Rule",
+    "service": "order",
+    "route": "/order",
+    "method": "POST",
+    "rules": [
+        {
+            "traT-name": "trade-trat",
+            "adz-mapping": {
+                "action": {
+                    "path": "$body.action",
+                    "required": true
+                },
+                "quantity": {
+                    "path": "$body.quantity",
+                    "required": true
+                },
+                "stock": {
+                    "path": "$body.stockID",
+                    "required": true
+                }
+            }
+        }
+    ]
+}
+
+{
+    "type": "TraT-Verification-Rule",
+    "service": "order",
+    "route": "/order/{id}",
+    "method": "GET",
+    "rules": [
+        {
+            "traT-name": "trade-details-trat",
+            "adz-mapping": {
+                "id": {
+                    "mappting": "${id}",
+                    "required": true
+                }
+            }
+        }
+    ]
+}
