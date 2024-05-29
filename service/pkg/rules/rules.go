@@ -51,6 +51,5 @@ func (r *Rules) GetVerificationRules(service string) (map[string]VerificationRul
 }
 
 func (r *Rules) GetGenerationRules() map[string]GenerationRule {
-
 	return r.generationRules
 }

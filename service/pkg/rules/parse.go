@@ -18,11 +18,13 @@ func parse(dir string) (map[string]TraTDefinition, map[string]GenerationRule, ma
 		if err != nil {
 			return err
 		}
+
 		if !info.IsDir() {
 			file, err := os.Open(path)
 			if err != nil {
 				return err
 			}
+
 			defer file.Close()
 
 			reader := bufio.NewReader(file)
@@ -30,6 +32,7 @@ func parse(dir string) (map[string]TraTDefinition, map[string]GenerationRule, ma
 
 			for {
 				var jsonData map[string]interface{}
+
 				if err := decoder.Decode(&jsonData); err == io.EOF {
 					break
 				} else if err != nil {
@@ -39,26 +42,34 @@ func parse(dir string) (map[string]TraTDefinition, map[string]GenerationRule, ma
 				switch jsonType := jsonData["type"]; jsonType {
 				case "TraT":
 					var definition TraTDefinition
+
 					jsonBytes, err := json.Marshal(jsonData)
+
 					if err != nil {
 						return err
 					}
+
 					if err := json.Unmarshal(jsonBytes, &definition); err != nil {
 						return err
 					}
+
 					traTs[definition.TraTName] = definition
 
 				case "TraT-Generation-Rule":
 					var genRule GenerationRule
+
 					jsonBytes, err := json.Marshal(jsonData)
+
 					if err != nil {
 						return err
 					}
+
 					if err := json.Unmarshal(jsonBytes, &genRule); err != nil {
 						return err
 					}
 
 					key := genRule.Method + genRule.Route
+
 					if _, exists := generationRules[key]; exists {
 						return fmt.Errorf("multiple generation rules for route: %s,  method: %s provided", genRule.Route, genRule.Method)
 					}
@@ -67,10 +78,13 @@ func parse(dir string) (map[string]TraTDefinition, map[string]GenerationRule, ma
 
 				case "TraT-Verification-Rule":
 					var verRule VerificationRule
+
 					jsonBytes, err := json.Marshal(jsonData)
+
 					if err != nil {
 						return err
 					}
+
 					if err := json.Unmarshal(jsonBytes, &verRule); err != nil {
 						return err
 					}
@@ -81,7 +95,7 @@ func parse(dir string) (map[string]TraTDefinition, map[string]GenerationRule, ma
 						verificationRules[verRule.Service] = serviceVerificatinRules
 					}
 
-					key :=  verRule.Method + verRule.Route
+					key := verRule.Method + verRule.Route
 					if _, exists := serviceVerificatinRules[key]; exists {
 						return fmt.Errorf("multiple verification rules for service: %s, route: %s,  method: %s provided", verRule.Service, verRule.Route, verRule.Method)
 					}
@@ -90,6 +104,7 @@ func parse(dir string) (map[string]TraTDefinition, map[string]GenerationRule, ma
 				}
 			}
 		}
+
 		return nil
 	})
 

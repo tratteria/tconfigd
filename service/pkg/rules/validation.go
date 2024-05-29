@@ -21,6 +21,7 @@ var validMethods = map[string]struct{}{
 
 func isValidHTTPMethod(method string) bool {
 	_, exists := validMethods[method]
+
 	return exists
 }
 
@@ -39,6 +40,7 @@ func validateGenerationRules(genRules map[string]GenerationRule, traTs map[strin
 			return fmt.Errorf("invalid adz mapping in TraT generation rule; traT: %s, route: %s, method: %s; error: %s", genRule.TraTName, genRule.Route, genRule.Method, err.Error())
 		}
 	}
+
 	return nil
 }
 
@@ -61,6 +63,7 @@ func validateVerificationRules(verRules map[string]map[string]VerificationRule, 
 			}
 		}
 	}
+
 	return nil
 }
 

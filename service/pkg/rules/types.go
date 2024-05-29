@@ -43,14 +43,18 @@ func (v *VerificationAdzField) UnmarshalJSON(data []byte) error {
 		Path     string `json:"path"`
 		Required bool   `json:"required"`
 	}
+
 	if err := json.Unmarshal(data, &obj); err == nil {
 		*v = VerificationAdzField{Path: obj.Path, Required: obj.Required}
+
 		return nil
 	}
 
 	var path string
+
 	if err := json.Unmarshal(data, &path); err == nil {
 		*v = VerificationAdzField{Path: path, Required: false}
+
 		return nil
 	}
 

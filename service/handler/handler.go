@@ -29,6 +29,7 @@ func (h *Handlers) GetVerificationRulesHandler(w http.ResponseWriter, r *http.Re
 
 	if serviceName == "" {
 		http.Error(w, "Service parameter is required", http.StatusBadRequest)
+
 		return
 	}
 
@@ -39,6 +40,7 @@ func (h *Handlers) GetVerificationRulesHandler(w http.ResponseWriter, r *http.Re
 		} else {
 			http.Error(w, "Internal Server error", http.StatusInternalServerError)
 		}
+
 		return
 	}
 
