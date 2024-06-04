@@ -9,9 +9,9 @@ import (
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 
-	"github.com/tratteria/tratd/handler"
-	"github.com/tratteria/tratd/pkg/rules"
-	"github.com/tratteria/tratd/pkg/service"
+	"github.com/tratteria/tconfigd/handler"
+	"github.com/tratteria/tconfigd/pkg/rules"
+	"github.com/tratteria/tconfigd/pkg/service"
 )
 
 type App struct {
@@ -34,7 +34,7 @@ func main() {
 
 	if len(os.Args) < 2 {
 		logger.Error("Rules directory not provided. Please specify the rules directory as an argument when running the service.",
-			zap.String("usage", "tratd <rules-directory>"))
+			zap.String("usage", "tconfigd <rules-directory>"))
 		os.Exit(1)
 	}
 

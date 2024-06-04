@@ -5,8 +5,8 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/tratteria/tratd/pkg/apperrors"
-	"github.com/tratteria/tratd/pkg/service"
+	"github.com/tratteria/tconfigd/pkg/apperrors"
+	"github.com/tratteria/tconfigd/pkg/service"
 
 	"go.uber.org/zap"
 )
