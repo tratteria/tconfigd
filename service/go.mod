@@ -1,4 +1,4 @@
-module github.com/tratteria/tratd
+module github.com/tratteria/tconfigd
 
 go 1.22.0
 
