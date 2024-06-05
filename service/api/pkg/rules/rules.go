@@ -1,19 +1,17 @@
 package rules
 
 import (
-	"github.com/tratteria/tconfigd/pkg/apperrors"
+	"github.com/tratteria/tconfigd/api/pkg/apierrors"
 )
 
 type Rules struct {
-	dir               string
 	traTs             map[string]TraTDefinition
 	generationRules   map[string]GenerationRule
 	verificationRules map[string]map[string]VerificationRule
 }
 
-func NewRules(dir string) *Rules {
+func NewRules() *Rules {
 	return &Rules{
-		dir:               dir,
 		traTs:             make(map[string]TraTDefinition),
 		generationRules:   make(map[string]GenerationRule),
 		verificationRules: make(map[string]map[string]VerificationRule),
@@ -21,7 +19,7 @@ func NewRules(dir string) *Rules {
 }
 
 func (r *Rules) Load() error {
-	traTs, generationRules, verificationRules, err := parse(r.dir)
+	traTs, generationRules, verificationRules, err := parse("/etc/rules/trats-rules.ndjson")
 	if err != nil {
 		return err
 	}
@@ -44,7 +42,7 @@ func (r *Rules) Load() error {
 func (r *Rules) GetVerificationRules(service string) (map[string]VerificationRule, error) {
 	verificationRule, exist := r.verificationRules[service]
 	if !exist {
-		return nil, apperrors.ErrVerificationRuleNotFound
+		return nil, apierrors.ErrVerificationRuleNotFound
 	}
 
 	return verificationRule, nil

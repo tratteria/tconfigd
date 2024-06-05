@@ -1,74 +1,49 @@
 package main
 
 import (
+	"context"
 	"log"
-	"net/http"
 	"os"
-	"time"
+	"os/signal"
+	"syscall"
 
-	"github.com/gorilla/mux"
-	"go.uber.org/zap"
-
-	"github.com/tratteria/tconfigd/handler"
-	"github.com/tratteria/tconfigd/pkg/rules"
-	"github.com/tratteria/tconfigd/pkg/service"
+	"github.com/tratteria/tconfigd/api"
+	"github.com/tratteria/tconfigd/webhook"
 )
 
-type App struct {
-	Router *mux.Router
-	Rules  *rules.Rules
-	Logger *zap.Logger
-}
-
 func main() {
-	logger, err := zap.NewProduction()
-	if err != nil {
-		log.Fatalf("Cannot initialize Zap logger: %v.", err)
-	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	defer func() {
-		if err := logger.Sync(); err != nil {
-			log.Printf("Error syncing logger: %v", err)
+	setupSignalHandler(cancel)
+
+	go func() {
+		log.Println("Starting API server...")
+
+		if err := api.Run(); err != nil {
+			log.Fatalf("API server failed: %v", err)
 		}
 	}()
 
-	if len(os.Args) < 2 {
-		logger.Error("Rules directory not provided. Please specify the rules directory as an argument when running the service.",
-			zap.String("usage", "tconfigd <rules-directory>"))
-		os.Exit(1)
-	}
+	go func() {
+		log.Println("Starting Webhook server...")
 
-	rulesDir := os.Args[1]
-	rules := rules.NewRules(rulesDir)
+		if err := webhook.Run(); err != nil {
+			log.Fatalf("Webhook server failed: %v", err)
+		}
+	}()
 
-	err = rules.Load()
-	if err != nil {
-		logger.Fatal("Error loading rules:", zap.Error(err))
-	}
+	<-ctx.Done()
 
-	app := &App{
-		Router: mux.NewRouter(),
-		Rules:  rules,
-		Logger: logger,
-	}
-
-	appService := service.NewService(app.Rules, app.Logger)
-	appHandler := handler.NewHandlers(appService, app.Logger)
-
-	app.initializeRoutes(appHandler)
-
-	srv := &http.Server{
-		Handler:      app.Router,
-		Addr:         "0.0.0.0:9060",
-		WriteTimeout: 15 * time.Second,
-		ReadTimeout:  15 * time.Second,
-	}
-
-	logger.Info("Starting server on 9060.")
-	log.Fatal(srv.ListenAndServe())
+	log.Println("Shutting down servers and controllers...")
 }
 
-func (a *App) initializeRoutes(handlers *handler.Handlers) {
-	a.Router.HandleFunc("/verification-rules", handlers.GetVerificationRulesHandler).Methods("GET")
-	a.Router.HandleFunc("/generation-rules", handlers.GetGenerationRulesHandler).Methods("GET")
+func setupSignalHandler(cancel context.CancelFunc) {
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		<-sigs
+		cancel()
+	}()
 }

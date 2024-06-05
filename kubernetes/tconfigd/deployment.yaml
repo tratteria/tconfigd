@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tconfigd
+  namespace: tratteria
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tconfigd
+  template:
+    metadata:
+      labels:
+        app: tconfigd
+      namespace: tratteria
+    spec:
+      dnsPolicy: ClusterFirstWithHostNet
+      serviceAccountName: tconfigd-service-account
+      containers:
+        - env:
+            - name: SPIFFE_ENDPOINT_SOCKET
+              value: unix:///run/spire/sockets/agent.sock
+            - name: TRATTERIA_SPIFFE_ID
+              value: spiffe://tratteria.io/tratteria
+          image: tconfigd
+          name: tconfigd
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 9060
+              protocol: TCP
+            - containerPort: 443
+              protocol: TCP
+          volumeMounts:
+            - name: config-volume
+              mountPath: "/etc/rules"
+              readOnly: true
+            - mountPath: /run/spire/sockets
+              name: spire-agent-socket
+              readOnly: true
+      restartPolicy: Always
+      volumes:
+        - name: config-volume
+          configMap:
+            name: trats-rules-config
+            items:
+              - key: "trats-rules.ndjson"
+                path: "trats-rules.ndjson"
+        - name: spire-agent-socket
+          hostPath:
+            path: /run/spire/sockets
+            type: Directory
