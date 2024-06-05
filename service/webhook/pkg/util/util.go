@@ -21,7 +21,7 @@ func CreatePodPatch(pod *corev1.Pod) ([]jsonpatch.JsonPatchOperation, error) {
 				Value: serviceName,
 			},
 			{
-				Name:  "TRATTERIA_URL",
+				Name:  "TCONFIGD_URL",
 				Value: "http://tconfigd.tratteria.svc.cluster.local:9060",
 			},
 		},
