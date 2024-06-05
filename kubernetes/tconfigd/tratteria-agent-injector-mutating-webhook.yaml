@@ -1,0 +1,25 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: tratteria-agent-injector
+  labels:
+    tratteria.io/webhook: "true"
+webhooks:
+  - name: tratteria-agent-injector.tratteria.com
+    clientConfig:
+      service:
+        name: tconfigd
+        namespace: tratteria
+        path: "/inject-tratteria-agents"
+      caBundle: 
+    rules:
+      - operations: ["CREATE"]
+        apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+    admissionReviewVersions: ["v1", "v1beta1"]
+    sideEffects: None
+    timeoutSeconds: 5
+    objectSelector:
+      matchLabels:
+        tratteria-agent: "true"

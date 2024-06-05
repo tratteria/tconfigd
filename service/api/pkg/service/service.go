@@ -1,7 +1,7 @@
 package service
 
 import (
-	"github.com/tratteria/tconfigd/pkg/rules"
+	"github.com/tratteria/tconfigd/api/pkg/rules"
 	"go.uber.org/zap"
 )
 

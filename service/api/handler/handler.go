@@ -5,8 +5,8 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/tratteria/tconfigd/pkg/apperrors"
-	"github.com/tratteria/tconfigd/pkg/service"
+	"github.com/tratteria/tconfigd/api/pkg/apierrors"
+	"github.com/tratteria/tconfigd/api/pkg/service"
 
 	"go.uber.org/zap"
 )
@@ -35,7 +35,7 @@ func (h *Handlers) GetVerificationRulesHandler(w http.ResponseWriter, r *http.Re
 
 	verificationRules, err := h.Service.GetVerificationRule(serviceName)
 	if err != nil {
-		if errors.Is(err, apperrors.ErrVerificationRuleNotFound) {
+		if errors.Is(err, apierrors.ErrVerificationRuleNotFound) {
 			http.Error(w, err.Error(), http.StatusNotFound)
 		} else {
 			http.Error(w, "Internal Server error", http.StatusInternalServerError)
