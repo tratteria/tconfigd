@@ -19,6 +19,7 @@ func CreatePodPatch(pod *corev1.Pod) ([]jsonpatch.JsonPatchOperation, error) {
 
 	serviceName, nameOk := pod.Annotations["tratteria/service-name"]
 	servicePort, portOk := pod.Annotations["tratteria/service-port"]
+
 	if !nameOk || !portOk {
 		return nil, fmt.Errorf("service-name and service-port must be specified when inject-sidecar is 'true'")
 	}
