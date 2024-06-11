@@ -1,1 +1,2 @@
 kubectl delete namespace tratteria
+kubectl delete mutatingwebhookconfiguration tratteria-agent-injector
