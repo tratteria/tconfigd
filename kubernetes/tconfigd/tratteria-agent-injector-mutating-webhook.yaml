@@ -20,6 +20,6 @@ webhooks:
     admissionReviewVersions: ["v1", "v1beta1"]
     sideEffects: None
     timeoutSeconds: 5
-    objectSelector:
+    namespaceSelector:
       matchLabels:
-        tratteria-agent: "true"
+        tratteria-enabled: "true"
