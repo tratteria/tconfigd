@@ -19,7 +19,7 @@ func NewRules() *Rules {
 }
 
 func (r *Rules) Load() error {
-	traTs, generationRules, verificationRules, err := parse("/etc/rules/trats-rules.ndjson")
+	traTs, generationRules, verificationRules, err := parse("/etc/tconfigd/rules/trats-rules.ndjson")
 	if err != nil {
 		return err
 	}

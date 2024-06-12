@@ -24,6 +24,7 @@ spec:
               value: spiffe://tratteria.io/tratteria
           image: tconfigd
           name: tconfigd
+          args: ["/etc/tconfigd/config/config.yaml"]
           imagePullPolicy: Never
           ports:
             - containerPort: 9060
@@ -31,20 +32,26 @@ spec:
             - containerPort: 443
               protocol: TCP
           volumeMounts:
-            - name: config-volume
-              mountPath: "/etc/rules"
+            - name: trats-rules-volume
+              mountPath: "/etc/tconfigd/rules"
+              readOnly: true
+            - name: tconfigd-config-volume
+              mountPath: "/etc/tconfigd/config"
               readOnly: true
             - mountPath: /run/spire/sockets
               name: spire-agent-socket
               readOnly: true
       restartPolicy: Always
       volumes:
-        - name: config-volume
+        - name: trats-rules-volume
           configMap:
             name: trats-rules-config
             items:
               - key: "trats-rules.ndjson"
                 path: "trats-rules.ndjson"
+        - name: tconfigd-config-volume
+          configMap:
+            name: config
         - name: spire-agent-socket
           hostPath:
             path: /run/spire/sockets

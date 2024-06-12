@@ -59,7 +59,7 @@ func Run() error {
 		ReadTimeout:  15 * time.Second,
 	}
 
-	logger.Info("Starting rules server on port 9060.")
+	logger.Info("Starting api server on port 9060.")
 
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		logger.Error("Failed to start the api server", zap.Error(err))

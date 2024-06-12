@@ -13,6 +13,7 @@ import (
 
 	"github.com/tratteria/tconfigd/webhook/handler"
 	"github.com/tratteria/tconfigd/webhook/pkg/tlscreds"
+	"github.com/tratteria/tconfigd/webhook/webhookconfig"
 )
 
 type Webhook struct {
@@ -22,7 +23,7 @@ type Webhook struct {
 	Logger              *zap.Logger
 }
 
-func Run() error {
+func Run(config *webhookconfig.WebhookConfig) error {
 	logger, err := zap.NewProduction()
 	if err != nil {
 		return fmt.Errorf("cannot initialize Zap logger: %w", err)
@@ -34,7 +35,7 @@ func Run() error {
 		}
 	}()
 
-	handler := handler.NewHandlers(logger)
+	handler := handler.NewHandlers(config, logger)
 
 	webhook := &Webhook{
 		Router:  mux.NewRouter(),

@@ -8,7 +8,9 @@ import (
 	"syscall"
 
 	"github.com/tratteria/tconfigd/api"
+	"github.com/tratteria/tconfigd/config"
 	"github.com/tratteria/tconfigd/webhook"
+	"github.com/tratteria/tconfigd/webhook/webhookconfig"
 )
 
 func main() {
@@ -16,6 +18,17 @@ func main() {
 	defer cancel()
 
 	setupSignalHandler(cancel)
+
+	if len(os.Args) < 2 {
+		log.Fatalf("No configuration file provided. Please specify the configuration path as an argument when running the service.\nUsage: %s <config-path>", os.Args[0])
+	}
+
+	configPath := os.Args[1]
+
+	appConfig, err := config.GetAppConfig(configPath)
+	if err != nil {
+		log.Fatalf("Error reading configuration: %v", err)
+	}
 
 	go func() {
 		log.Println("Starting API server...")
@@ -28,7 +41,9 @@ func main() {
 	go func() {
 		log.Println("Starting Webhook server...")
 
-		if err := webhook.Run(); err != nil {
+		webhookConfig := webhookconfig.WebhookConfig{EnableTratInterception: bool(appConfig.EnableTratInterception)}
+
+		if err := webhook.Run(&webhookConfig); err != nil {
 			log.Fatalf("Webhook server failed: %v", err)
 		}
 	}()
