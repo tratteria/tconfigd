@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/tratteria/tconfigd/webhook/pkg/util"
+	"github.com/tratteria/tconfigd/webhook/webhookconfig"
 
 	"go.uber.org/zap"
 
@@ -14,29 +15,31 @@ import (
 )
 
 type Handlers struct {
-	Logger *zap.Logger
+	config *webhookconfig.WebhookConfig
+	logger *zap.Logger
 }
 
-func NewHandlers(logger *zap.Logger) *Handlers {
+func NewHandlers(config *webhookconfig.WebhookConfig, logger *zap.Logger) *Handlers {
 	return &Handlers{
-		Logger: logger,
+		config: config,
+		logger: logger,
 	}
 }
 
 func (h *Handlers) InjectTratteriaAgent(w http.ResponseWriter, r *http.Request) {
-	h.Logger.Info("Received Agent Injection Request")
+	h.logger.Info("Received Agent Injection Request")
 
 	var admissionReview admissionv1.AdmissionReview
 
 	if err := json.NewDecoder(r.Body).Decode(&admissionReview); err != nil {
-		h.Logger.Error("Failed to decode admission review", zap.Error(err))
+		h.logger.Error("Failed to decode admission review", zap.Error(err))
 		http.Error(w, "could not decode admission review", http.StatusBadRequest)
 
 		return
 	}
 
 	if admissionReview.Request == nil {
-		h.Logger.Error("Received an AdmissionReview with no Request")
+		h.logger.Error("Received an AdmissionReview with no Request")
 		http.Error(w, "received an AdmissionReview with no Request", http.StatusBadRequest)
 
 		return
@@ -49,15 +52,15 @@ func (h *Handlers) InjectTratteriaAgent(w http.ResponseWriter, r *http.Request) 
 
 	var pod corev1.Pod
 	if err := json.Unmarshal(admissionReview.Request.Object.Raw, &pod); err != nil {
-		h.Logger.Error("Could not unmarshal raw object into pod", zap.Error(err))
+		h.logger.Error("Could not unmarshal raw object into pod", zap.Error(err))
 		admissionResponse.Result = &metav1.Status{
 			Message: err.Error(),
 		}
 	} else {
-		patchOps, err := util.CreatePodPatch(&pod)
+		patchOps, err := util.CreatePodPatch(&pod, h.config.EnableTratInterception)
 
 		if err != nil {
-			h.Logger.Error("Could not create patch for pod", zap.Error(err))
+			h.logger.Error("Could not create patch for pod", zap.Error(err))
 			admissionResponse.Result = &metav1.Status{
 				Message: err.Error(),
 			}
@@ -65,7 +68,7 @@ func (h *Handlers) InjectTratteriaAgent(w http.ResponseWriter, r *http.Request) 
 			patchBytes, err := json.Marshal(patchOps)
 
 			if err != nil {
-				h.Logger.Error("Failed to marshal patch operations", zap.Error(err))
+				h.logger.Error("Failed to marshal patch operations", zap.Error(err))
 				admissionResponse.Result = &metav1.Status{
 					Message: err.Error(),
 				}
@@ -89,9 +92,9 @@ func (h *Handlers) InjectTratteriaAgent(w http.ResponseWriter, r *http.Request) 
 	w.Header().Set("Content-Type", "application/json")
 
 	if err := json.NewEncoder(w).Encode(responseAdmissionReview); err != nil {
-		h.Logger.Error("Failed to write response", zap.Error(err))
+		h.logger.Error("Failed to write response", zap.Error(err))
 		http.Error(w, "failed to write response", http.StatusInternalServerError)
 	}
 
-	h.Logger.Info("Agent Injection Request Processed Successfully", zap.Any("patched-pod", responseAdmissionReview))
+	h.logger.Info("Agent Injection Request Processed Successfully", zap.Any("patched-pod", responseAdmissionReview))
 }

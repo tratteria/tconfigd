@@ -9,7 +9,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-func CreatePodPatch(pod *corev1.Pod) ([]jsonpatch.JsonPatchOperation, error) {
+func CreatePodPatch(pod *corev1.Pod, injectInitContainer bool) ([]jsonpatch.JsonPatchOperation, error) {
 	var patch []jsonpatch.JsonPatchOperation
 
 	shouldInject, ok := pod.Annotations["tratteria/inject-sidecar"]
@@ -28,35 +28,37 @@ func CreatePodPatch(pod *corev1.Pod) ([]jsonpatch.JsonPatchOperation, error) {
 		return nil, fmt.Errorf("service-port must be a valid number")
 	}
 
-	initContainer := corev1.Container{
-		Name:            "tratteria-agent-init",
-		Image:           "tratteria-agent-init:latest",
-		Args:            []string{"-i", servicePort, "-p", "9070"},
-		ImagePullPolicy: corev1.PullNever,
-		SecurityContext: &corev1.SecurityContext{
-			Capabilities: &corev1.Capabilities{
-				Add: []corev1.Capability{"NET_ADMIN"},
+	if injectInitContainer {
+		initContainer := corev1.Container{
+			Name:            "tratteria-agent-init",
+			Image:           "tratteria-agent-init:latest",
+			Args:            []string{"-i", servicePort, "-p", "9070"},
+			ImagePullPolicy: corev1.PullNever,
+			SecurityContext: &corev1.SecurityContext{
+				Capabilities: &corev1.Capabilities{
+					Add: []corev1.Capability{"NET_ADMIN"},
+				},
 			},
-		},
-	}
+		}
 
-	initContainerJson, err := json.Marshal(initContainer)
-	if err != nil {
-		return nil, err
-	}
+		initContainerJson, err := json.Marshal(initContainer)
+		if err != nil {
+			return nil, err
+		}
 
-	if pod.Spec.InitContainers == nil {
-		patch = append(patch, jsonpatch.JsonPatchOperation{
-			Operation: "add",
-			Path:      "/spec/initContainers",
-			Value:     []json.RawMessage{json.RawMessage(initContainerJson)},
-		})
-	} else {
-		patch = append(patch, jsonpatch.JsonPatchOperation{
-			Operation: "add",
-			Path:      "/spec/initContainers/-",
-			Value:     json.RawMessage(initContainerJson),
-		})
+		if pod.Spec.InitContainers == nil {
+			patch = append(patch, jsonpatch.JsonPatchOperation{
+				Operation: "add",
+				Path:      "/spec/initContainers",
+				Value:     []json.RawMessage{json.RawMessage(initContainerJson)},
+			})
+		} else {
+			patch = append(patch, jsonpatch.JsonPatchOperation{
+				Operation: "add",
+				Path:      "/spec/initContainers/-",
+				Value:     json.RawMessage(initContainerJson),
+			})
+		}
 	}
 
 	sidecar := corev1.Container{
