@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/tratteria/tconfigd/webhook/pkg/util"
-	"github.com/tratteria/tconfigd/webhook/webhookconfig"
 
 	"go.uber.org/zap"
 
@@ -15,14 +14,14 @@ import (
 )
 
 type Handlers struct {
-	config *webhookconfig.WebhookConfig
-	logger *zap.Logger
+	enableTratInterception bool
+	logger                 *zap.Logger
 }
 
-func NewHandlers(config *webhookconfig.WebhookConfig, logger *zap.Logger) *Handlers {
+func NewHandlers(enableTratInterception bool, logger *zap.Logger) *Handlers {
 	return &Handlers{
-		config: config,
-		logger: logger,
+		enableTratInterception: enableTratInterception,
+		logger:                 logger,
 	}
 }
 
@@ -57,7 +56,7 @@ func (h *Handlers) InjectTratteriaAgent(w http.ResponseWriter, r *http.Request) 
 			Message: err.Error(),
 		}
 	} else {
-		patchOps, err := util.CreatePodPatch(&pod, h.config.EnableTratInterception)
+		patchOps, err := util.CreatePodPatch(&pod, h.enableTratInterception)
 
 		if err != nil {
 			h.logger.Error("Could not create patch for pod", zap.Error(err))

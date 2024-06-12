@@ -2,73 +2,58 @@ package webhook
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"time"
-
-	"github.com/spiffe/go-spiffe/v2/workloadapi"
 
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 
 	"github.com/tratteria/tconfigd/webhook/handler"
 	"github.com/tratteria/tconfigd/webhook/pkg/tlscreds"
-	"github.com/tratteria/tconfigd/webhook/webhookconfig"
 )
 
 type Webhook struct {
-	Router              *mux.Router
-	SpireWrokloadClient *workloadapi.Client
-	Handler             *handler.Handlers
-	Logger              *zap.Logger
+	enableTratInterception bool
+	logger                 *zap.Logger
 }
 
-func Run(config *webhookconfig.WebhookConfig) error {
-	logger, err := zap.NewProduction()
-	if err != nil {
-		return fmt.Errorf("cannot initialize Zap logger: %w", err)
+func NewWebhook(enableTratInterception bool, logger *zap.Logger) *Webhook {
+	return &Webhook{
+		enableTratInterception: enableTratInterception,
+		logger:                 logger,
 	}
+}
 
-	defer func() {
-		if err := logger.Sync(); err != nil {
-			log.Printf("Error syncing logger: %v", err)
-		}
-	}()
+func (webhook *Webhook) Run() error {
+	handler := handler.NewHandlers(webhook.enableTratInterception, webhook.logger)
+	router := mux.NewRouter()
 
-	handler := handler.NewHandlers(config, logger)
-
-	webhook := &Webhook{
-		Router:  mux.NewRouter(),
-		Handler: handler,
-		Logger:  logger,
-	}
-
-	webhook.initializeRoutes()
+	initializeRoutes(router, handler)
 
 	srv := &http.Server{
-		Handler:      webhook.Router,
+		Handler:      router,
 		Addr:         "0.0.0.0:443",
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
 	}
 
 	if err := tlscreds.SetupTLSCertAndKeyFromSPIRE(); err != nil {
-		logger.Error("Error setting up TLS creds", zap.Error(err))
+		webhook.logger.Error("Error setting up TLS creds", zap.Error(err))
 
-		return err
+		return fmt.Errorf("error setting up TLS creds: %w", err)
 	}
 
-	logger.Info("Starting webhook server with TLS on port 443")
+	webhook.logger.Info("Starting webhook server with TLS on port 443")
 
 	if err := srv.ListenAndServeTLS(tlscreds.CertPath, tlscreds.KeyPath); err != nil && err != http.ErrServerClosed {
-		logger.Error("Failed to start the webhook server", zap.Error(err))
+		webhook.logger.Error("Failed to start the webhook server", zap.Error(err))
 
-		return err
+		return fmt.Errorf("failed to start the webhook server: %w", err)
 	}
 
 	return nil
 }
 
-func (w *Webhook) initializeRoutes() {
-	w.Router.HandleFunc("/inject-tratteria-agents", w.Handler.InjectTratteriaAgent).Methods("POST")
+func initializeRoutes(router *mux.Router, handler *handler.Handlers) {
+	router.HandleFunc("/inject-tratteria-agents", handler.InjectTratteriaAgent).Methods("POST")
 }
