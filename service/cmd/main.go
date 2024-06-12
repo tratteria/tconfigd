@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -10,7 +11,7 @@ import (
 	"github.com/tratteria/tconfigd/api"
 	"github.com/tratteria/tconfigd/config"
 	"github.com/tratteria/tconfigd/webhook"
-	"github.com/tratteria/tconfigd/webhook/webhookconfig"
+	"go.uber.org/zap"
 )
 
 func main() {
@@ -19,38 +20,51 @@ func main() {
 
 	setupSignalHandler(cancel)
 
+	logger, err := zap.NewProduction()
+	if err != nil {
+		log.Fatalf("Cannot initialize Zap logger: %v.", err)
+	}
+
+	defer func() {
+		if err := logger.Sync(); err != nil {
+			log.Printf("Error syncing logger: %v", err)
+		}
+	}()
+
 	if len(os.Args) < 2 {
-		log.Fatalf("No configuration file provided. Please specify the configuration path as an argument when running the service.\nUsage: %s <config-path>", os.Args[0])
+		logger.Fatal(fmt.Sprintf("No configuration file provided. Please specify the configuration path as an argument when running the service.\nUsage: %s <config-path>", os.Args[0]))
 	}
 
 	configPath := os.Args[1]
 
 	appConfig, err := config.GetAppConfig(configPath)
 	if err != nil {
-		log.Fatalf("Error reading configuration: %v", err)
+		logger.Fatal("Error reading configuration.", zap.Error(err))
 	}
 
 	go func() {
-		log.Println("Starting API server...")
+		logger.Info("Starting API server...")
 
-		if err := api.Run(); err != nil {
-			log.Fatalf("API server failed: %v", err)
+		apiServer := api.NewAPI(logger)
+
+		if err := apiServer.Run(); err != nil {
+			logger.Fatal("Failed to start API server.", zap.Error(err))
 		}
 	}()
 
 	go func() {
-		log.Println("Starting Webhook server...")
+		logger.Info("Starting Webhook server...")
 
-		webhookConfig := webhookconfig.WebhookConfig{EnableTratInterception: bool(appConfig.EnableTratInterception)}
+		webhook := webhook.NewWebhook(bool(appConfig.EnableTratInterception), logger)
 
-		if err := webhook.Run(&webhookConfig); err != nil {
-			log.Fatalf("Webhook server failed: %v", err)
+		if err := webhook.Run(); err != nil {
+			logger.Fatal("Failed to start webhook server.", zap.Error(err))
 		}
 	}()
 
 	<-ctx.Done()
 
-	log.Println("Shutting down servers and controllers...")
+	logger.Info("Shutting down servers and controllers...")
 }
 
 func setupSignalHandler(cancel context.CancelFunc) {
