@@ -8,19 +8,15 @@ import (
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 
+	"github.com/tratteria/tconfigd/agentsmanager"
 	"github.com/tratteria/tconfigd/api/handler"
 	"github.com/tratteria/tconfigd/api/pkg/rules"
 	"github.com/tratteria/tconfigd/api/pkg/service"
 )
 
 type API struct {
-	logger *zap.Logger
-}
-
-func NewAPI(logger *zap.Logger) *API {
-	return &API{
-		logger: logger,
-	}
+	AgentsManager *agentsmanager.AgentsManager
+	Logger        *zap.Logger
 }
 
 func (api *API) Run() error {
@@ -31,8 +27,8 @@ func (api *API) Run() error {
 		return fmt.Errorf("error loading rules: %w", err)
 	}
 
-	service := service.NewService(rules, api.logger)
-	handler := handler.NewHandlers(service, api.logger)
+	service := service.NewService(rules, api.AgentsManager, api.Logger)
+	handler := handler.NewHandlers(service, api.Logger)
 	router := mux.NewRouter()
 
 	initializeRulesRoutes(router, handler)
@@ -44,18 +40,20 @@ func (api *API) Run() error {
 		ReadTimeout:  15 * time.Second,
 	}
 
-	api.logger.Info("Starting api server on port 9060.")
+	api.Logger.Info("Starting api server on port 9060.")
 
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		api.logger.Error("Failed to start the api server", zap.Error(err))
+		api.Logger.Error("Failed to start the api server", zap.Error(err))
 
-		return fmt.Errorf("failed to start api server :%w", err)
+		return fmt.Errorf("failed to start the api server :%w", err)
 	}
 
 	return nil
 }
 
 func initializeRulesRoutes(router *mux.Router, handler *handler.Handlers) {
+	router.HandleFunc("/agent-register", handler.RegistrationHandler).Methods("POST")
+	router.HandleFunc("/agent-heartbeat", handler.HeartBeatHandler).Methods("POST")
 	router.HandleFunc("/verification-rules", handler.GetVerificationRulesHandler).Methods("GET")
 	router.HandleFunc("/generation-rules", handler.GetGenerationRulesHandler).Methods("GET")
 }

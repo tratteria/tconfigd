@@ -15,12 +15,16 @@ import (
 
 type Handlers struct {
 	enableTratInterception bool
+	agentApiPort           int
+	agentInterceptorPort   int
 	logger                 *zap.Logger
 }
 
-func NewHandlers(enableTratInterception bool, logger *zap.Logger) *Handlers {
+func NewHandlers(enableTratInterception bool, agentApiPort int, agentInterceptorPort int, logger *zap.Logger) *Handlers {
 	return &Handlers{
 		enableTratInterception: enableTratInterception,
+		agentApiPort:           agentApiPort,
+		agentInterceptorPort:   agentInterceptorPort,
 		logger:                 logger,
 	}
 }
@@ -56,7 +60,7 @@ func (h *Handlers) InjectTratteriaAgent(w http.ResponseWriter, r *http.Request) 
 			Message: err.Error(),
 		}
 	} else {
-		patchOps, err := util.CreatePodPatch(&pod, h.enableTratInterception)
+		patchOps, err := util.CreatePodPatch(&pod, h.enableTratInterception, h.agentApiPort, h.agentInterceptorPort)
 
 		if err != nil {
 			h.logger.Error("Could not create patch for pod", zap.Error(err))
