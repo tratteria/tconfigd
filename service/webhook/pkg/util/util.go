@@ -6,10 +6,11 @@ import (
 	"strconv"
 
 	"github.com/mattbaird/jsonpatch"
+	"github.com/tratteria/tconfigd/common"
 	corev1 "k8s.io/api/core/v1"
 )
 
-func CreatePodPatch(pod *corev1.Pod, injectInitContainer bool) ([]jsonpatch.JsonPatchOperation, error) {
+func CreatePodPatch(pod *corev1.Pod, injectInitContainer bool, agentApiPort int, agentInterceptorPort int) ([]jsonpatch.JsonPatchOperation, error) {
 	var patch []jsonpatch.JsonPatchOperation
 
 	shouldInject, ok := pod.Annotations["tratteria/inject-sidecar"]
@@ -32,7 +33,7 @@ func CreatePodPatch(pod *corev1.Pod, injectInitContainer bool) ([]jsonpatch.Json
 		initContainer := corev1.Container{
 			Name:            "tratteria-agent-init",
 			Image:           "tratteria-agent-init:latest",
-			Args:            []string{"-i", servicePort, "-p", "9070"},
+			Args:            []string{"-i", servicePort, "-p", strconv.Itoa(agentInterceptorPort)},
 			ImagePullPolicy: corev1.PullNever,
 			SecurityContext: &corev1.SecurityContext{
 				Capabilities: &corev1.Capabilities{
@@ -76,6 +77,18 @@ func CreatePodPatch(pod *corev1.Pod, injectInitContainer bool) ([]jsonpatch.Json
 			{
 				Name:  "TCONFIGD_URL",
 				Value: "http://tconfigd.tratteria.svc.cluster.local:9060",
+			},
+			{
+				Name:  "AGENT_API_PORT",
+				Value: strconv.Itoa(agentApiPort),
+			},
+			{
+				Name:  "AGENT_INTERCEPTOR_PORT",
+				Value: strconv.Itoa(agentInterceptorPort),
+			},
+			{
+				Name:  "HEARTBEAT_INTERVAL_MINUTES",
+				Value: strconv.Itoa(common.AGENT_HEARTBEAT_INTERVAL_MINUTES),
 			},
 		},
 		Ports:           []corev1.ContainerPort{{ContainerPort: 9070}},

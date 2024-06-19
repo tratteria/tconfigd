@@ -50,8 +50,29 @@ func (b *BoolFromString) UnmarshalYAML(unmarshal func(interface{}) error) error 
 	return nil
 }
 
+type IntFromString int
+
+func (i *IntFromString) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var strValue string
+
+	if err := unmarshal(&strValue); err != nil {
+		return err
+	}
+
+	intValue, err := strconv.Atoi(strValue)
+	if err != nil {
+		return err
+	}
+
+	*i = IntFromString(intValue)
+
+	return nil
+}
+
 type AppConfig struct {
 	EnableTratInterception BoolFromString `yaml:"enableTratInterception"`
+	AgentApiPort           IntFromString  `yaml:"agentApiPort"`
+	AgentInterceptorPort   IntFromString  `yaml:"agentInterceptorPort"`
 }
 
 func GetAppConfig(configPath string) (*AppConfig, error) {

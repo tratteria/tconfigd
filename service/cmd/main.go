@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/tratteria/tconfigd/agentsmanager"
 	"github.com/tratteria/tconfigd/api"
 	"github.com/tratteria/tconfigd/config"
 	"github.com/tratteria/tconfigd/webhook"
@@ -42,10 +43,15 @@ func main() {
 		logger.Fatal("Error reading configuration.", zap.Error(err))
 	}
 
+	agentsManager := agentsmanager.NewAgentManager()
+
 	go func() {
 		logger.Info("Starting API server...")
 
-		apiServer := api.NewAPI(logger)
+		apiServer := &api.API{
+			AgentsManager: agentsManager,
+			Logger:        logger,
+		}
 
 		if err := apiServer.Run(); err != nil {
 			logger.Fatal("Failed to start API server.", zap.Error(err))
@@ -55,10 +61,15 @@ func main() {
 	go func() {
 		logger.Info("Starting Webhook server...")
 
-		webhook := webhook.NewWebhook(bool(appConfig.EnableTratInterception), logger)
+		webhook := &webhook.Webhook{
+			EnableTratInterception: bool(appConfig.EnableTratInterception),
+			AgentApiPort:           int(appConfig.AgentApiPort),
+			AgentInterceptorPort:   int(appConfig.AgentInterceptorPort),
+			Logger:                 logger,
+		}
 
 		if err := webhook.Run(); err != nil {
-			logger.Fatal("Failed to start webhook server.", zap.Error(err))
+			logger.Fatal("Failed to start Webhook server.", zap.Error(err))
 		}
 	}()
 

@@ -1,1 +1,3 @@
 enableTratInterception: "true"
+agentApiPort: "9060"
+agentInterceptorPort: "9070"
