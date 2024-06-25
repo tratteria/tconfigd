@@ -27,5 +27,5 @@ jobs:
         uses: golangci/golangci-lint-action@v4
         with:
           version: v1.54.2
-          args: --timeout 5m --verbose
+          args: --timeout 5m --verbose --config .golangci.yml
           working-directory: ./service
