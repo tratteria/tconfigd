@@ -24,7 +24,7 @@ jobs:
           go-version: '1.22.0'
 
       - name: Print .golangci.yml content
-        run: cat .golangci.yml
+        run: cat ./service/golangci.yml
 
       - name: Install golangci-lint
         uses: golangci/golangci-lint-action@v4
