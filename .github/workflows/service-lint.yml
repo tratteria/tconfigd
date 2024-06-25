@@ -23,15 +23,9 @@ jobs:
         with:
           go-version: '1.22.0'
 
-      - name: List contents of the service directory
-        run: ls -la ./service
-
-      - name: Print .golangci.yml content
-        run: cat ./service/.golangci.yml
-
       - name: Install golangci-lint
         uses: golangci/golangci-lint-action@v4
         with:
           version: v1.54.2
-          args: --timeout 5m --verbose --config .golangci.yml --skip-dirs '^tratcontroller/.*$' --skip-dirs '^tratcontroller$'
+          args: --timeout 5m --verbose
           working-directory: ./service
