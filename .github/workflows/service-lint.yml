@@ -23,6 +23,9 @@ jobs:
         with:
           go-version: '1.22.0'
 
+      - name: List contents of the service directory
+        run: ls -la ./service
+
       - name: Install golangci-lint
         uses: golangci/golangci-lint-action@v4
         with:
