@@ -2,6 +2,7 @@ run:
   skip-dirs:
     - ^tratcontroller/.*$
     - ^tratcontroller$
+    - tratcontroller
 
 linters:
   disable-all: true

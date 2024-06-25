@@ -11,6 +11,7 @@ import (
 	"github.com/tratteria/tconfigd/agentsmanager"
 	"github.com/tratteria/tconfigd/api"
 	"github.com/tratteria/tconfigd/config"
+	"github.com/tratteria/tconfigd/tratcontroller"
 	"github.com/tratteria/tconfigd/webhook"
 	"go.uber.org/zap"
 )
@@ -70,6 +71,16 @@ func main() {
 
 		if err := webhook.Run(); err != nil {
 			logger.Fatal("Failed to start Webhook server.", zap.Error(err))
+		}
+	}()
+
+	go func() {
+		logger.Info("Starting TraT Controller...")
+
+		tratController := &tratcontroller.TraTController{}
+
+		if err := tratController.Run(); err != nil {
+			logger.Fatal("Failed to start TraT Controller server.", zap.Error(err))
 		}
 	}()
 
