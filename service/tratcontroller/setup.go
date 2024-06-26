@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/tratteria/tconfigd/configdispatcher"
+
 	"github.com/tratteria/tconfigd/tratcontroller/pkg/signals"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -14,7 +16,9 @@ import (
 	informers "github.com/tratteria/tconfigd/tratcontroller/pkg/generated/informers/externalversions"
 )
 
-type TraTController struct{}
+type TraTController struct {
+	ConfigDispatcher *configdispatcher.ConfigDispatcher
+}
 
 func (tc *TraTController) Run() error {
 	klog.InitFlags(nil)
@@ -41,7 +45,7 @@ func (tc *TraTController) Run() error {
 
 	exampleInformerFactory := informers.NewSharedInformerFactory(exampleClient, time.Second*30)
 
-	controller := NewController(ctx, kubeClient, exampleClient, exampleInformerFactory.Tratteria().V1alpha1().TraTs())
+	controller := NewController(ctx, kubeClient, exampleClient, exampleInformerFactory.Tratteria().V1alpha1().TraTs(), tc.ConfigDispatcher)
 
 	exampleInformerFactory.Start(ctx.Done())
 

@@ -32,9 +32,6 @@ spec:
             - containerPort: 443
               protocol: TCP
           volumeMounts:
-            - name: trats-rules-volume
-              mountPath: "/etc/tconfigd/rules"
-              readOnly: true
             - name: tconfigd-config-volume
               mountPath: "/etc/tconfigd/config"
               readOnly: true
@@ -43,12 +40,6 @@ spec:
               readOnly: true
       restartPolicy: Always
       volumes:
-        - name: trats-rules-volume
-          configMap:
-            name: trats-rules-config
-            items:
-              - key: "trats-rules.ndjson"
-                path: "trats-rules.ndjson"
         - name: tconfigd-config-volume
           configMap:
             name: config

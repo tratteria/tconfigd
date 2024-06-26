@@ -10,24 +10,16 @@ import (
 
 	"github.com/tratteria/tconfigd/agentsmanager"
 	"github.com/tratteria/tconfigd/api/handler"
-	"github.com/tratteria/tconfigd/api/pkg/rules"
 	"github.com/tratteria/tconfigd/api/pkg/service"
 )
 
 type API struct {
-	AgentsManager *agentsmanager.AgentsManager
-	Logger        *zap.Logger
+	AgentsLifecycleManager agentsmanager.AgentLifecycleManager
+	Logger                 *zap.Logger
 }
 
 func (api *API) Run() error {
-	rules := rules.NewRules()
-
-	err := rules.Load()
-	if err != nil {
-		return fmt.Errorf("error loading rules: %w", err)
-	}
-
-	service := service.NewService(rules, api.AgentsManager, api.Logger)
+	service := service.NewService(api.AgentsLifecycleManager, api.Logger)
 	handler := handler.NewHandlers(service, api.Logger)
 	router := mux.NewRouter()
 
@@ -54,6 +46,4 @@ func (api *API) Run() error {
 func initializeRulesRoutes(router *mux.Router, handler *handler.Handlers) {
 	router.HandleFunc("/agent-register", handler.RegistrationHandler).Methods("POST")
 	router.HandleFunc("/agent-heartbeat", handler.HeartBeatHandler).Methods("POST")
-	router.HandleFunc("/verification-rules", handler.GetVerificationRulesHandler).Methods("GET")
-	router.HandleFunc("/generation-rules", handler.GetGenerationRulesHandler).Methods("GET")
 }

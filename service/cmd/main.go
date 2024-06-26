@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -11,6 +12,7 @@ import (
 	"github.com/tratteria/tconfigd/agentsmanager"
 	"github.com/tratteria/tconfigd/api"
 	"github.com/tratteria/tconfigd/config"
+	"github.com/tratteria/tconfigd/configdispatcher"
 	"github.com/tratteria/tconfigd/tratcontroller"
 	"github.com/tratteria/tconfigd/webhook"
 	"go.uber.org/zap"
@@ -44,14 +46,16 @@ func main() {
 		logger.Fatal("Error reading configuration.", zap.Error(err))
 	}
 
+	httpClient := &http.Client{}
 	agentsManager := agentsmanager.NewAgentManager()
+	configdispatcher := configdispatcher.NewConfigDispatcher(agentsManager, httpClient)
 
 	go func() {
 		logger.Info("Starting API server...")
 
 		apiServer := &api.API{
-			AgentsManager: agentsManager,
-			Logger:        logger,
+			AgentsLifecycleManager: agentsManager,
+			Logger:                 logger,
 		}
 
 		if err := apiServer.Run(); err != nil {
@@ -77,7 +81,9 @@ func main() {
 	go func() {
 		logger.Info("Starting TraT Controller...")
 
-		tratController := &tratcontroller.TraTController{}
+		tratController := &tratcontroller.TraTController{
+			ConfigDispatcher: configdispatcher,
+		}
 
 		if err := tratController.Run(); err != nil {
 			logger.Fatal("Failed to start TraT Controller server.", zap.Error(err))

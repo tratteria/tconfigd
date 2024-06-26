@@ -33,18 +33,50 @@ spec:
                   type: string
                 method:
                   type: string
-                azd-mapping:
+                purp:
+                  type: string
+                azdMapping:
                   type: object
                   x-kubernetes-preserve-unknown-fields: true
                 services:
                   type: array
                   items:
-                    type: string
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                      endpoint:
+                        type: string
+                      azdMapping:
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
               required: ["endpoint", "method", "services"]
             status:
               type: object
               properties:
-                applied:
+                status:
+                  type: string
+                  default: "PENDING"
+                verificationApplied:
                   type: boolean
+                generationApplied:
+                  type: boolean
+                lastErrorMessage:
+                  type: string
+                  nullable: true
+                retries:
+                  type: integer
+                  default: 0
+      additionalPrinterColumns:
+        - name: "Status"
+          type: "string"
+          jsonPath: ".status.status"
+        - name: "Age"
+          type: "date"
+          jsonPath: ".metadata.creationTimestamp"
+          description: "Time since creation"
+        - name: "Retries"
+          type: "integer"
+          jsonPath: ".status.retries"
       subresources:
         status: {}

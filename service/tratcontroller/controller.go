@@ -7,6 +7,8 @@ import (
 
 	"golang.org/x/time/rate"
 
+	"github.com/tratteria/tconfigd/configdispatcher"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,27 +29,38 @@ import (
 	listers "github.com/tratteria/tconfigd/tratcontroller/pkg/generated/listers/tratteria/v1alpha1"
 )
 
-const controllerAgentName = "trat-controller"
+type Status string
 
 const (
-	SuccessApplied         = "Applied"
-	MessageResourceApplied = "TraT applied successfully"
+	PendingStatus Status = "PENDING"
+	DoneStatus    Status = "DONE"
 )
 
+type Stage string
+
+const (
+	VerificationApplicationStage Stage = "verification application stage"
+	GenerationApplicationStage   Stage = "generation application stage"
+)
+
+const controllerAgentName = "trat-controller"
+
 type Controller struct {
-	kubeclientset   kubernetes.Interface
-	sampleclientset clientset.Interface
-	tratsLister     listers.TraTLister
-	tratsSynced     cache.InformerSynced
-	workqueue       workqueue.TypedRateLimitingInterface[string]
-	recorder        record.EventRecorder
+	kubeclientset    kubernetes.Interface
+	sampleclientset  clientset.Interface
+	tratsLister      listers.TraTLister
+	tratsSynced      cache.InformerSynced
+	workqueue        workqueue.TypedRateLimitingInterface[string]
+	recorder         record.EventRecorder
+	configDispatcher *configdispatcher.ConfigDispatcher
 }
 
 func NewController(
 	ctx context.Context,
 	kubeclientset kubernetes.Interface,
 	sampleclientset clientset.Interface,
-	tratInformer informers.TraTInformer) *Controller {
+	tratInformer informers.TraTInformer,
+	configDispatcher *configdispatcher.ConfigDispatcher) *Controller {
 	logger := klog.FromContext(ctx)
 
 	utilruntime.Must(samplescheme.AddToScheme(scheme.Scheme))
@@ -66,12 +79,13 @@ func NewController(
 	)
 
 	controller := &Controller{
-		kubeclientset:   kubeclientset,
-		sampleclientset: sampleclientset,
-		tratsLister:     tratInformer.Lister(),
-		tratsSynced:     tratInformer.Informer().HasSynced,
-		workqueue:       workqueue.NewTypedRateLimitingQueue(ratelimiter),
-		recorder:        recorder,
+		kubeclientset:    kubeclientset,
+		sampleclientset:  sampleclientset,
+		tratsLister:      tratInformer.Lister(),
+		tratsSynced:      tratInformer.Informer().HasSynced,
+		workqueue:        workqueue.NewTypedRateLimitingQueue(ratelimiter),
+		recorder:         recorder,
+		configDispatcher: configDispatcher,
 	}
 
 	logger.Info("Setting up event handlers")
@@ -158,7 +172,6 @@ func (c *Controller) syncHandler(ctx context.Context, key string) error {
 	}
 
 	trat, err := c.tratsLister.TraTs(namespace).Get(name)
-
 	if err != nil {
 		if errors.IsNotFound(err) {
 			utilruntime.HandleError(fmt.Errorf("trat '%s' in work queue no longer exists", key))
@@ -169,23 +182,101 @@ func (c *Controller) syncHandler(ctx context.Context, key string) error {
 		return err
 	}
 
-	err = c.updateTraTStatus(trat)
-
+	verificationRules, err := trat.GetVerificationRules()
 	if err != nil {
-		return err
+		messagedErr := fmt.Errorf("error retrieving verification rules from %s trat: %w", name, err)
+
+		c.recorder.Event(trat, corev1.EventTypeWarning, "error", messagedErr.Error())
+
+		if updateErr := c.updateErrorTraTStatus(ctx, trat, VerificationApplicationStage, err); updateErr != nil {
+			return fmt.Errorf("failed to update status for %s trat after verification rules retrieval error: %w", name, updateErr)
+		}
+
+		return messagedErr
 	}
 
-	c.recorder.Event(trat, corev1.EventTypeNormal, SuccessApplied, MessageResourceApplied)
+	// TODO: Implement parallel dispatching of rules using goroutines
+	for service, serviceVerificationRule := range verificationRules {
+		err := c.configDispatcher.DispatchVerificationRules(ctx, service, serviceVerificationRule)
+		if err != nil {
+			messagedErr := fmt.Errorf("error dispatching %s trat verification rule to %s service: %w", name, service, err)
+
+			c.recorder.Event(trat, corev1.EventTypeWarning, "error", messagedErr.Error())
+
+			if updateErr := c.updateErrorTraTStatus(ctx, trat, VerificationApplicationStage, err); updateErr != nil {
+				return fmt.Errorf("failed to update status for %s trat after verification rules dispatch error: %w", name, updateErr)
+			}
+
+			return messagedErr
+		}
+	}
+
+	c.recorder.Event(trat, corev1.EventTypeNormal, string(VerificationApplicationStage)+" successful", string(VerificationApplicationStage)+" completed successfully")
+
+	generationRule, err := trat.GetGenerationRule()
+	if err != nil {
+		messagedErr := fmt.Errorf("error retrieving generation rules from %s trat: %w", name, err)
+
+		c.recorder.Event(trat, corev1.EventTypeWarning, "error", messagedErr.Error())
+
+		if updateErr := c.updateErrorTraTStatus(ctx, trat, GenerationApplicationStage, err); updateErr != nil {
+			return fmt.Errorf("failed to update status for %s trat after generation rules retrieval error: %w", name, updateErr)
+		}
+
+		return messagedErr
+	}
+
+	err = c.configDispatcher.DispatchGenerationRule(ctx, generationRule)
+	if err != nil {
+		messagedErr := fmt.Errorf("error dispatching %s trat generation rule: %w", name, err)
+
+		c.recorder.Event(trat, corev1.EventTypeWarning, "error", messagedErr.Error())
+
+		if updateErr := c.updateErrorTraTStatus(ctx, trat, GenerationApplicationStage, err); updateErr != nil {
+			return fmt.Errorf("failed to update status for %s trat after generation rule dispatch error: %w", name, updateErr)
+		}
+
+		return messagedErr
+	}
+
+	if updateErr := c.updateSuccessTratStatus(ctx, trat); updateErr != nil {
+		return fmt.Errorf("failed to update success status for %s trat: %w", name, updateErr)
+	}
+
+	c.recorder.Event(trat, corev1.EventTypeNormal, string(GenerationApplicationStage)+" successful", string(GenerationApplicationStage)+" completed successfully")
 
 	return nil
 }
 
-func (c *Controller) updateTraTStatus(trat *samplev1alpha1.TraT) error {
+func (c *Controller) updateErrorTraTStatus(ctx context.Context, trat *samplev1alpha1.TraT, stage Stage, err error) error {
 	tratCopy := trat.DeepCopy()
-	tratCopy.Status.Applied = true
-	_, err := c.sampleclientset.TratteriaV1alpha1().TraTs(trat.Namespace).UpdateStatus(context.TODO(), tratCopy, metav1.UpdateOptions{})
 
-	return err
+	tratCopy.Status.VerificationApplied = false
+	tratCopy.Status.GenerationApplied = false
+	tratCopy.Status.Status = string(PendingStatus)
+	tratCopy.Status.Retries += 1
+
+	if stage == GenerationApplicationStage {
+		tratCopy.Status.VerificationApplied = true
+	}
+
+	tratCopy.Status.LastErrorMessage = err.Error()
+
+	_, updateErr := c.sampleclientset.TratteriaV1alpha1().TraTs(trat.Namespace).UpdateStatus(ctx, tratCopy, metav1.UpdateOptions{})
+
+	return updateErr
+}
+
+func (c *Controller) updateSuccessTratStatus(ctx context.Context, trat *samplev1alpha1.TraT) error {
+	tratCopy := trat.DeepCopy()
+
+	tratCopy.Status.VerificationApplied = true
+	tratCopy.Status.GenerationApplied = true
+	tratCopy.Status.Status = string(DoneStatus)
+
+	_, updateErr := c.sampleclientset.TratteriaV1alpha1().TraTs(trat.Namespace).UpdateStatus(ctx, tratCopy, metav1.UpdateOptions{})
+
+	return updateErr
 }
 
 func (c *Controller) enqueueTraT(obj interface{}) {
