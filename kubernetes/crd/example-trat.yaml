@@ -1,12 +1,13 @@
 apiVersion: tratteria.io/v1alpha1
 kind: TraT
 metadata:
-  name: trade
+  name: order-trade-trat
   namespace: test-application
 spec:
   endpoint: "order/trade/{#stock-id}?action={#action}"
   method: "POST"
-  azd-mapping:
+  purp: trade
+  azdMapping:
     quantity:
       required: true
       value: "${body.quantity}"
@@ -17,7 +18,4 @@ spec:
       required: true
       value: "${stock-id}"
   services:
-    - order
-    - catalog
-    - stocks
-    - payment
+    - name: order
