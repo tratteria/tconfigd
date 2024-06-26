@@ -27,7 +27,7 @@ func NewConfigDispatcher(activeAgentRetriever agentsmanager.ActiveAgentRetriever
 	}
 }
 
-// TODO: Implement parallel processing of HTTP requests using goroutines
+// TODO: Implement parallel processing of HTTP requests using goroutines.
 func (cd *ConfigDispatcher) DispatchVerificationRules(ctx context.Context, serviceName string, verificationConfig *v1alpha1.VerificationRule) error {
 	agents, err := cd.activeAgentRetriever.GetServiceActiveAgents(serviceName)
 	if err != nil {
