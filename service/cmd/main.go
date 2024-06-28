@@ -9,10 +9,10 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/tratteria/tconfigd/agentsmanager"
 	"github.com/tratteria/tconfigd/api"
 	"github.com/tratteria/tconfigd/config"
 	"github.com/tratteria/tconfigd/configdispatcher"
+	"github.com/tratteria/tconfigd/dataplaneregistry"
 	"github.com/tratteria/tconfigd/tratcontroller"
 	"github.com/tratteria/tconfigd/webhook"
 	"go.uber.org/zap"
@@ -47,15 +47,16 @@ func main() {
 	}
 
 	httpClient := &http.Client{}
-	agentsManager := agentsmanager.NewAgentManager()
+	agentsManager := dataplaneregistry.NewRegistry()
 	configdispatcher := configdispatcher.NewConfigDispatcher(agentsManager, httpClient)
 
 	go func() {
 		logger.Info("Starting API server...")
 
 		apiServer := &api.API{
-			AgentsLifecycleManager: agentsManager,
-			Logger:                 logger,
+			DataPlaneRegistryManager: agentsManager,
+			HttpClient:               httpClient,
+			Logger:                   logger,
 		}
 
 		if err := apiServer.Run(); err != nil {

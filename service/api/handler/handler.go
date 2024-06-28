@@ -47,12 +47,19 @@ func (h *Handlers) RegistrationHandler(w http.ResponseWriter, r *http.Request) {
 
 	h.Logger.Info("Received a registration request.", zap.String("service", registrationRequest.ServiceName))
 
-	h.Service.RegisterAgent(registrationRequest.IpAddress, registrationRequest.Port, registrationRequest.ServiceName)
+	registrationResponse := h.Service.RegisterAgent(registrationRequest.IpAddress, registrationRequest.Port, registrationRequest.ServiceName)
 
 	// TODO: return rules belonging to this service
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
+
+	if err := json.NewEncoder(w).Encode(registrationResponse); err != nil {
+		h.Logger.Error("Failed to encode registration response.", zap.Error(err))
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+
+		return
+	}
 }
 
 func (h *Handlers) HeartBeatHandler(w http.ResponseWriter, r *http.Request) {
@@ -74,3 +81,26 @@ func (h *Handlers) HeartBeatHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 }
+
+func (h *Handlers) GetJwksHandler(w http.ResponseWriter, r *http.Request) {
+	h.Logger.Info("Get-Jwks request received.")
+
+	ctx := r.Context()
+
+	jwks, err := h.Service.CollectJwks(ctx)
+	if err != nil {
+		h.Logger.Error("Error collecting JWKS from tratteria instances.", zap.Error(err))
+		http.Error(w, "Error collecting JWKS", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if err := json.NewEncoder(w).Encode(jwks); err != nil {
+		h.Logger.Error("Failed to encode response of a get-jwks request.", zap.Error(err))
+		return
+	}
+
+	h.Logger.Info("Get-Jwks request processed successfully.")
+}
+

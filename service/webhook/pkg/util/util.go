@@ -88,7 +88,7 @@ func CreatePodPatch(pod *corev1.Pod, injectInitContainer bool, agentApiPort int,
 			},
 			{
 				Name:  "HEARTBEAT_INTERVAL_MINUTES",
-				Value: strconv.Itoa(common.AGENT_HEARTBEAT_INTERVAL_MINUTES),
+				Value: strconv.Itoa(common.DATA_PLANE_HEARTBEAT_INTERVAL_MINUTES),
 			},
 		},
 		Ports:           []corev1.ContainerPort{{ContainerPort: 9070}},
