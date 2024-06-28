@@ -91,6 +91,7 @@ func (h *Handlers) GetJwksHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.Logger.Error("Error collecting JWKS from tratteria instances.", zap.Error(err))
 		http.Error(w, "Error collecting JWKS", http.StatusInternalServerError)
+
 		return
 	}
 
@@ -98,9 +99,9 @@ func (h *Handlers) GetJwksHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err := json.NewEncoder(w).Encode(jwks); err != nil {
 		h.Logger.Error("Failed to encode response of a get-jwks request.", zap.Error(err))
+
 		return
 	}
 
 	h.Logger.Info("Get-Jwks request processed successfully.")
 }
-

@@ -67,7 +67,12 @@ func (s *Service) CollectJwks(ctx context.Context) ([]jwk.Key, error) {
 
 		for iter := set.Iterate(ctx); iter.Next(ctx); {
 			pair := iter.Pair()
-			key := pair.Value.(jwk.Key)
+
+			key, ok := pair.Value.(jwk.Key)
+			if !ok {
+				return nil, fmt.Errorf("type assertion failed for JWKS key")
+			}
+
 			allKeys = append(allKeys, key)
 		}
 	}
