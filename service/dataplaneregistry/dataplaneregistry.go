@@ -74,7 +74,7 @@ func (am *Registry) UpdateHeartbeat(ip string, port int, serviceName string) {
 
 	if entry, ok := am.entries[serviceName][key]; ok {
 		entry.LastHeartbeat = time.Now()
-	} // TODO: return error if entry entry not found
+	} // TODO: return error if an entry not found
 }
 
 func (am *Registry) GetActiveEntries(serviceName string) ([]*Component, error) {
