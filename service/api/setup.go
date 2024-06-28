@@ -8,18 +8,19 @@ import (
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 
-	"github.com/tratteria/tconfigd/agentsmanager"
 	"github.com/tratteria/tconfigd/api/handler"
 	"github.com/tratteria/tconfigd/api/pkg/service"
+	"github.com/tratteria/tconfigd/dataplaneregistry"
 )
 
 type API struct {
-	AgentsLifecycleManager agentsmanager.AgentLifecycleManager
-	Logger                 *zap.Logger
+	DataPlaneRegistryManager dataplaneregistry.Manager
+	HttpClient               *http.Client
+	Logger                   *zap.Logger
 }
 
 func (api *API) Run() error {
-	service := service.NewService(api.AgentsLifecycleManager, api.Logger)
+	service := service.NewService(api.DataPlaneRegistryManager, api.HttpClient, api.Logger)
 	handler := handler.NewHandlers(service, api.Logger)
 	router := mux.NewRouter()
 
@@ -44,6 +45,7 @@ func (api *API) Run() error {
 }
 
 func initializeRulesRoutes(router *mux.Router, handler *handler.Handlers) {
-	router.HandleFunc("/agent-register", handler.RegistrationHandler).Methods("POST")
-	router.HandleFunc("/agent-heartbeat", handler.HeartBeatHandler).Methods("POST")
+	router.HandleFunc("/register", handler.RegistrationHandler).Methods("POST")
+	router.HandleFunc("/heartbeat", handler.HeartBeatHandler).Methods("POST")
+	router.HandleFunc("/.well-known/jwks.json", handler.GetJwksHandler).Methods("GET")
 }

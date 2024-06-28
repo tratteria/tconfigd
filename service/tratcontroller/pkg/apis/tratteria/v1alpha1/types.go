@@ -59,14 +59,14 @@ type VerificationRule struct {
 	Endpoint   string     `json:"endpoint"`
 	Method     string     `json:"method"`
 	Purp       string     `json:"purp"`
-	AzdMapping AzdMapping `json:"azdmapping"`
+	AzdMapping AzdMapping `json:"azdmapping,omitempty"`
 }
 
 type GenerationRule struct {
 	Endpoint   string     `json:"endpoint"`
 	Method     string     `json:"method"`
 	Purp       string     `json:"purp"`
-	AzdMapping AzdMapping `json:"azdmapping"`
+	AzdMapping AzdMapping `json:"azdmapping,omitempty"`
 }
 
 func (trat *TraT) GetVerificationRules() (map[string]*VerificationRule, error) {
@@ -103,6 +103,12 @@ func (trat *TraT) GetVerificationRules() (map[string]*VerificationRule, error) {
 }
 
 func (trat *TraT) GetGenerationRule() (*GenerationRule, error) {
+	// TODO: do basic check and return err if failed
 
-	return &GenerationRule{}, nil
+	return &GenerationRule{
+		Endpoint:   trat.Spec.Endpoint,
+		Method:     trat.Spec.Method,
+		Purp:       trat.Spec.Purp,
+		AzdMapping: trat.Spec.AzdMapping,
+	}, nil
 }
