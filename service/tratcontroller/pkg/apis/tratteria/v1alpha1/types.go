@@ -55,28 +55,28 @@ type TraTList struct {
 	Items []TraT `json:"items"`
 }
 
-type VerificationRule struct {
+type VerificationEndpointRule struct {
 	Endpoint   string     `json:"endpoint"`
 	Method     string     `json:"method"`
 	Purp       string     `json:"purp"`
 	AzdMapping AzdMapping `json:"azdmapping,omitempty"`
 }
 
-type GenerationRule struct {
+type GenerationEndpointRule struct {
 	Endpoint   string     `json:"endpoint"`
 	Method     string     `json:"method"`
 	Purp       string     `json:"purp"`
 	AzdMapping AzdMapping `json:"azdmapping,omitempty"`
 }
 
-func (trat *TraT) GetVerificationRules() (map[string]*VerificationRule, error) {
-	verificationRules := make(map[string]*VerificationRule)
+func (traT *TraT) GetVerificationEndpointRules() (map[string]*VerificationEndpointRule, error) {
+	verificationRules := make(map[string]*VerificationEndpointRule)
 
 	// TODO: do basic check and return err if failed
 
-	for _, serviceSpec := range trat.Spec.Services {
-		endpoint := trat.Spec.Endpoint
-		azdMapping := trat.Spec.AzdMapping
+	for _, serviceSpec := range traT.Spec.Services {
+		endpoint := traT.Spec.Endpoint
+		azdMapping := traT.Spec.AzdMapping
 
 		if serviceSpec.Endpoint != "" {
 			endpoint = serviceSpec.Endpoint
@@ -86,29 +86,122 @@ func (trat *TraT) GetVerificationRules() (map[string]*VerificationRule, error) {
 			azdMapping = serviceSpec.AzdMapping
 		}
 
-		verificationRules[serviceSpec.Name] = &VerificationRule{
+		verificationRules[serviceSpec.Name] = &VerificationEndpointRule{
 			Endpoint:   endpoint,
-			Method:     trat.Spec.Method,
-			Purp:       trat.Spec.Purp,
+			Method:     traT.Spec.Method,
+			Purp:       traT.Spec.Purp,
 			AzdMapping: azdMapping,
 		}
 
 	}
 
 	if len(verificationRules) == 0 {
-		return nil, fmt.Errorf("%w: verification rules for %s trat", tconfigderrors.ErrNotFound, trat.Name)
+		return nil, fmt.Errorf("%w: verification rules for %s trat", tconfigderrors.ErrNotFound, traT.Name)
 	}
 
 	return verificationRules, nil
 }
 
-func (trat *TraT) GetGenerationRule() (*GenerationRule, error) {
+func (traT *TraT) GetGenerationEndpointRule() (*GenerationEndpointRule, error) {
 	// TODO: do basic check and return err if failed
 
-	return &GenerationRule{
-		Endpoint:   trat.Spec.Endpoint,
-		Method:     trat.Spec.Method,
-		Purp:       trat.Spec.Purp,
-		AzdMapping: trat.Spec.AzdMapping,
+	return &GenerationEndpointRule{
+		Endpoint:   traT.Spec.Endpoint,
+		Method:     traT.Spec.Method,
+		Purp:       traT.Spec.Purp,
+		AzdMapping: traT.Spec.AzdMapping,
 	}, nil
+}
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type TraTConfig struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec   TraTConfigSpec   `json:"spec"`
+	Status TratConfigStatus `json:"status"`
+}
+
+type SubjectTokens struct {
+	OIDC       *OIDCToken       `json:"OIDC,omitempty"`
+	SelfSigned *SelfSignedToken `json:"selfSigned,omitempty"`
+}
+
+type OIDCToken struct {
+	ClientID     string `json:"clientId"`
+	ProviderURL  string `json:"providerURL"`
+	SubjectField string `json:"subjectField"`
+}
+
+type SelfSignedToken struct {
+	Validation    bool   `json:"validation"`
+	JWKSSEndpoint string `json:"jwksEndpoint"`
+}
+
+type AccessEvaluationAPI struct {
+	AnableAccessEvaluation bool           `json:"enableAccessEvaluation"`
+	Endpoint               string         `json:"endpoint"`
+	Authentication         Authentication `json:"authentication"`
+}
+
+type Authentication struct {
+	Method string `json:"method"`
+	Token  Token  `json:"token"`
+}
+
+type Token struct {
+	Value string `json:"value"`
+}
+
+type Spiffe struct {
+	AuthorizedServiceIDs []string `json:"authorizedServiceIDs"`
+}
+
+type TraTConfigSpec struct {
+	Token struct {
+		Issuer   string `json:"issuer"`
+		Audience string `json:"audience"`
+		LifeTime string `json:"lifeTime"`
+	} `json:"token"`
+	SubjectTokens       SubjectTokens       `json:"subjectTokens"`
+	AccessEvaluationAPI AccessEvaluationAPI `json:"accessEvaluationAPI"`
+	Spiffe              Spiffe              `json:"spiffe"`
+}
+
+type TratConfigStatus struct {
+	VerificationApplied bool   `json:"verificationApplied"`
+	GenerationApplied   bool   `json:"generationApplied"`
+	Status              string `json:"status"`
+	LastErrorMessage    string `json:"lastErrorMessage,omitempty"`
+	Retries             int32  `json:"retries"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type TraTConfigList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+
+	Items []TraTConfig `json:"items"`
+}
+
+type VerificationTokenRule struct {
+	Issuer   string `json:"issuer"`
+	Audience string `json:"audience"`
+}
+
+type GenerationTokenRule TraTConfigSpec
+
+func (traTConfig *TraTConfig) GetVerificationTokenRule() (*VerificationTokenRule, error) {
+	return &VerificationTokenRule{
+		Issuer:   traTConfig.Spec.Token.Issuer,
+		Audience: traTConfig.Spec.Token.Audience,
+	}, nil
+}
+
+func (traTConfig *TraTConfig) GetGenerationTokenRule() (*GenerationTokenRule, error) {
+	generationTokenRule := GenerationTokenRule(traTConfig.Spec)
+	return &generationTokenRule, nil
 }

@@ -14,6 +14,7 @@ import (
 
 	clientset "github.com/tratteria/tconfigd/tratcontroller/pkg/generated/clientset/versioned"
 	informers "github.com/tratteria/tconfigd/tratcontroller/pkg/generated/informers/externalversions"
+	"github.com/tratteria/tconfigd/tratcontroller/controller"
 )
 
 type TraTController struct {
@@ -38,16 +39,19 @@ func (tc *TraTController) Run() error {
 		return fmt.Errorf("error building kubernetes clientset: %w", err)
 	}
 
-	exampleClient, err := clientset.NewForConfig(cfg)
+	tratteriaClient, err := clientset.NewForConfig(cfg)
 	if err != nil {
 		return fmt.Errorf("error building kubernetes clientset: %w", err)
 	}
 
-	exampleInformerFactory := informers.NewSharedInformerFactory(exampleClient, time.Second*30)
+	tratteriaInformerFactory := informers.NewSharedInformerFactory(tratteriaClient, time.Second*30)
+	tratInformer := tratteriaInformerFactory.Tratteria().V1alpha1().TraTs()
+	tratConfigInformer := tratteriaInformerFactory.Tratteria().V1alpha1().TraTConfigs()
 
-	controller := NewController(ctx, kubeClient, exampleClient, exampleInformerFactory.Tratteria().V1alpha1().TraTs(), tc.ConfigDispatcher)
 
-	exampleInformerFactory.Start(ctx.Done())
+	controller := controller.NewController(ctx, kubeClient, tratteriaClient, tratInformer, tratConfigInformer, tc.ConfigDispatcher)
+
+	tratteriaInformerFactory.Start(ctx.Done())
 
 	if err = controller.Run(ctx, 2); err != nil {
 		return fmt.Errorf("error running controller: %w", err)

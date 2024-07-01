@@ -1,5 +1,3 @@
-docker build -t tconfigd:latest -f ../../service/Dockerfile ../../service/
-
 kubectl create namespace tratteria
 
 kubectl create configmap config --from-file=config.yaml=config.yaml -n tratteria

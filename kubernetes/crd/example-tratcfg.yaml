@@ -1,0 +1,24 @@
+apiVersion: tratteria.io/v1alpha1
+kind: TraTConfig
+metadata:
+  name: example-tratcfg
+  namespace: test-microservice-application
+spec:
+  token:
+    issuer: "https://example.org/tts"
+    audience: "https://example.org/"
+    lifeTime: "15000s"
+  subjectTokens:
+    selfSigned:
+      validation: false
+      jwksEndpoint: "http://example.org/oidcprovider/.well-known/jwks.json"
+  accessEvaluationAPI:
+    enableAccessEvaluation: false
+    endpoint: "https://example.authzen.com/access/v1/evaluation"
+    authentication:
+      method: "Bearer"
+      token:
+        value: "${AUTHORIZATION_API_BEARER_TOKEN}"
+  spiffe:
+    authorizedServiceIDs:
+      - "spiffe://example.org/gateway"

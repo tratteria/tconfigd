@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/tratteria/tconfigd/common"
 	"github.com/tratteria/tconfigd/dataplaneregistry"
@@ -13,90 +14,123 @@ import (
 )
 
 const (
-	CONFIG_WEBHOOK_ENDPOINT = "/config-webhook"
+	VERIFICATION_ENDPOINT_RULE_WEBHOOK_ENDPOINT = "/verification-endpoint-rule-webhook"
+	VERIFICATION_TOKEN_RULE_WEBHOOK_ENDPOINT    = "/verification-token-rule-webhook"
+	GENERATION_ENDPOINT_RULE_WEBHOOK_ENDPOINT   = "/generation-endpoint-rule-webhook"
+	GENERATION_TOKEN_RULE_WEBHOOK_ENDPOINT      = "/generation-token-rule-webhook"
 )
 
 type ConfigDispatcher struct {
-	activeAgentRetriever dataplaneregistry.Retriever
-	httpClient           *http.Client
+	dataplaneRegistryRetriever dataplaneregistry.Retriever
+	httpClient                 *http.Client
 }
 
-func NewConfigDispatcher(activeAgentRetriever dataplaneregistry.Retriever, httpClient *http.Client) *ConfigDispatcher {
+func NewConfigDispatcher(dataplaneRegistryRetriever dataplaneregistry.Retriever, httpClient *http.Client) *ConfigDispatcher {
 	return &ConfigDispatcher{
-		activeAgentRetriever: activeAgentRetriever,
-		httpClient:           httpClient,
+		dataplaneRegistryRetriever: dataplaneRegistryRetriever,
+		httpClient:                 httpClient,
 	}
 }
 
-// TODO: Implement parallel processing of HTTP requests using goroutines.
-func (cd *ConfigDispatcher) DispatchVerificationRules(ctx context.Context, serviceName string, verificationConfig *v1alpha1.VerificationRule) error {
-	agents, err := cd.activeAgentRetriever.GetActiveEntries(serviceName)
+func (cd *ConfigDispatcher) dispatchConfigUtil(ctx context.Context, url string, config json.RawMessage) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(config))
 	if err != nil {
-		return fmt.Errorf("unable to retrieve active agents for service %s: %w", serviceName, err)
+		return fmt.Errorf("error creating request: %w", err)
 	}
 
-	for _, agent := range agents {
-		url := fmt.Sprintf("http://%s:%d%s", agent.IpAddress, agent.Port, CONFIG_WEBHOOK_ENDPOINT)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := cd.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("error sending request: %w", err)
+	}
 
-		jsonData, err := json.Marshal(verificationConfig)
-		if err != nil {
-			return fmt.Errorf("error marshaling verification config: %w", err)
-		}
-
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(jsonData))
-		if err != nil {
-			return fmt.Errorf("error creating request for a %s agent: %w", serviceName, err)
-		}
-
-		req.Header.Set("Content-Type", "application/json")
-
-		resp, err := cd.httpClient.Do(req)
-		if err != nil {
-			return fmt.Errorf("error sending request to a %s agent: %w", serviceName, err)
-		}
-
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("received non-ok status %d from a %s agent", resp.StatusCode, serviceName)
-		}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("received non-ok status: %d", resp.StatusCode)
 	}
 
 	return nil
 }
 
 // TODO: Implement parallel processing of HTTP requests using goroutines.
-func (cd *ConfigDispatcher) DispatchGenerationRule(ctx context.Context, generationConfig *v1alpha1.GenerationRule) error {
-	tratteriaInstances, err := cd.activeAgentRetriever.GetActiveEntries(common.TRATTERIA_SERVICE_NAME)
-	if err != nil {
-		return fmt.Errorf("unable to retrieve active tratteria instances: %w", err)
+func (cd *ConfigDispatcher) dispatchConfig(ctx context.Context, serviceName string, namespace string, endpoint string, config json.RawMessage) error {
+	entries := cd.dataplaneRegistryRetriever.GetActiveEntries(serviceName, namespace)
+
+	var dispatchErrors []string
+
+	for _, entry := range entries {
+		url := fmt.Sprintf("http://%s:%d%s", entry.IpAddress, entry.Port, endpoint)
+		err := cd.dispatchConfigUtil(ctx, url, config)
+		if err != nil {
+			dispatchErrors = append(dispatchErrors, err.Error())
+		}
 	}
 
-	for _, instance := range tratteriaInstances {
-		url := fmt.Sprintf("http://%s:%d%s", instance.IpAddress, instance.Port, CONFIG_WEBHOOK_ENDPOINT)
+	if len(dispatchErrors) > 0 {
+		return fmt.Errorf("error dispatching config to %s service: %s", serviceName, strings.Join(dispatchErrors, ", "))
+	}
 
-		jsonData, err := json.Marshal(generationConfig)
+	return nil
+}
+
+func (cd *ConfigDispatcher) DispatchVerificationEndpointRule(ctx context.Context, serviceName string, namespace string, verificationEndpointRule *v1alpha1.VerificationEndpointRule) error {
+	jsonData, err := json.Marshal(verificationEndpointRule)
+	if err != nil {
+		return fmt.Errorf("error marshaling verification endpoint rule: %w", err)
+	}
+
+	err = cd.dispatchConfig(ctx, serviceName, namespace, VERIFICATION_ENDPOINT_RULE_WEBHOOK_ENDPOINT, jsonData)
+	if err != nil {
+		return fmt.Errorf("error dispatching verification endpoint rule to %s service: %w", serviceName, err)
+	}
+
+	return nil
+}
+
+func (cd *ConfigDispatcher) DispatchVerificationTokenRule(ctx context.Context, namespace string, verificationTokenRule *v1alpha1.VerificationTokenRule) error {
+	jsonData, err := json.Marshal(verificationTokenRule)
+	if err != nil {
+		return fmt.Errorf("error marshaling verification token rule: %w", err)
+	}
+
+	var dispatchErrors []string
+	for _, serviceName := range cd.dataplaneRegistryRetriever.GetAgentServices(namespace) {
+		err = cd.dispatchConfig(ctx, serviceName, namespace, VERIFICATION_TOKEN_RULE_WEBHOOK_ENDPOINT, jsonData)
 		if err != nil {
-			return fmt.Errorf("error marshaling generation config: %w", err)
+			dispatchErrors = append(dispatchErrors, fmt.Sprintf("error dispatching verification token rule to %s service: %v", serviceName, err))
 		}
+	}
 
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(jsonData))
-		if err != nil {
-			return fmt.Errorf("error creating request for a tratteria instance: %w", err)
-		}
+	if len(dispatchErrors) > 0 {
+		return fmt.Errorf("error dispatching verification token rule: %s", strings.Join(dispatchErrors, ", "))
+	}
 
-		req.Header.Set("Content-Type", "application/json")
+	return nil
+}
 
-		resp, err := cd.httpClient.Do(req)
-		if err != nil {
-			return fmt.Errorf("error sending request to a tratteria instance: %w", err)
-		}
+func (cd *ConfigDispatcher) DispatchGenerationEndpointRule(ctx context.Context, namespace string, generationEndpointRule *v1alpha1.GenerationEndpointRule) error {
+	jsonData, err := json.Marshal(generationEndpointRule)
+	if err != nil {
+		return fmt.Errorf("error marshaling generation endpoint rule: %w", err)
+	}
 
-		defer resp.Body.Close()
+	err = cd.dispatchConfig(ctx, common.TRATTERIA_SERVICE_NAME, namespace, GENERATION_ENDPOINT_RULE_WEBHOOK_ENDPOINT, jsonData)
+	if err != nil {
+		return fmt.Errorf("error dispatching generation endpoint rule to tratteria: %w", err)
+	}
 
-		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("received non-ok status %d from a tratteria instance", resp.StatusCode)
-		}
+	return nil
+}
+
+func (cd *ConfigDispatcher) DispatchGenerationTokentRule(ctx context.Context, namespace string, generationTokenRule *v1alpha1.GenerationTokenRule) error {
+	jsonData, err := json.Marshal(generationTokenRule)
+	if err != nil {
+		return fmt.Errorf("error marshaling generation token rule: %w", err)
+	}
+
+	err = cd.dispatchConfig(ctx, common.TRATTERIA_SERVICE_NAME, namespace, GENERATION_TOKEN_RULE_WEBHOOK_ENDPOINT, jsonData)
+	if err != nil {
+		return fmt.Errorf("error dispatching generation token rule to tratteria: %w", err)
 	}
 
 	return nil
