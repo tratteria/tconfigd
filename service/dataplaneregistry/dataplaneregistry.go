@@ -1,13 +1,11 @@
 package dataplaneregistry
 
 import (
-	"fmt"
 	"strconv"
 	"sync"
 	"time"
 
 	"github.com/tratteria/tconfigd/common"
-	"github.com/tratteria/tconfigd/tconfigderrors"
 )
 
 const (
@@ -24,23 +22,24 @@ type Component struct {
 }
 
 type Manager interface {
-	Register(string, int, string)
-	UpdateHeartbeat(string, int, string)
-	GetActiveEntries(string) ([]*Component, error)
+	Register(string, int, string, string)
+	UpdateHeartbeat(string, int, string, string)
+	GetActiveEntries(string, string) []*Component
 }
 
 type Retriever interface {
-	GetActiveEntries(string) ([]*Component, error)
+	GetActiveEntries(string, string) []*Component
+	GetAgentServices(string) []string
 }
 
 type Registry struct {
-	entries map[string]map[string]*Component
+	entries map[string]map[string]map[string]*Component
 	mutex   sync.RWMutex
 }
 
 func NewRegistry() *Registry {
 	am := &Registry{
-		entries: make(map[string]map[string]*Component),
+		entries: make(map[string]map[string]map[string]*Component),
 	}
 
 	go am.cleanupExpiredEntires()
@@ -48,17 +47,21 @@ func NewRegistry() *Registry {
 	return am
 }
 
-func (am *Registry) Register(ip string, port int, serviceName string) {
+func (am *Registry) Register(ip string, port int, serviceName string, namespace string) {
 	am.mutex.Lock()
 	defer am.mutex.Unlock()
 
-	if am.entries[serviceName] == nil {
-		am.entries[serviceName] = make(map[string]*Component)
+	if am.entries[namespace] == nil {
+		am.entries[namespace] = make(map[string]map[string]*Component)
+	}
+
+	if am.entries[namespace][serviceName] == nil {
+		am.entries[namespace][serviceName] = make(map[string]*Component)
 	}
 
 	key := ip + strconv.Itoa(port)
 
-	am.entries[serviceName][key] = &Component{
+	am.entries[namespace][serviceName][key] = &Component{
 		IpAddress:     ip,
 		Port:          port,
 		ServiceName:   serviceName,
@@ -66,18 +69,18 @@ func (am *Registry) Register(ip string, port int, serviceName string) {
 	}
 }
 
-func (am *Registry) UpdateHeartbeat(ip string, port int, serviceName string) {
+func (am *Registry) UpdateHeartbeat(ip string, port int, serviceName string, namespace string) {
 	am.mutex.Lock()
 	defer am.mutex.Unlock()
 
 	key := ip + strconv.Itoa(port)
 
-	if entry, ok := am.entries[serviceName][key]; ok {
+	if entry, ok := am.entries[namespace][serviceName][key]; ok {
 		entry.LastHeartbeat = time.Now()
 	} // TODO: return error if an entry not found
 }
 
-func (am *Registry) GetActiveEntries(serviceName string) ([]*Component, error) {
+func (am *Registry) GetActiveEntries(serviceName string, namespace string) []*Component {
 	am.mutex.RLock()
 	defer am.mutex.RUnlock()
 
@@ -85,9 +88,9 @@ func (am *Registry) GetActiveEntries(serviceName string) ([]*Component, error) {
 
 	now := time.Now()
 
-	serviceEntries, ok := am.entries[serviceName]
+	serviceEntries, ok := am.entries[namespace][serviceName]
 	if !ok {
-		return nil, fmt.Errorf("%w: service %s", tconfigderrors.ErrNotFound, serviceName)
+		return activeEntries
 	}
 
 	for _, entry := range serviceEntries {
@@ -96,7 +99,22 @@ func (am *Registry) GetActiveEntries(serviceName string) ([]*Component, error) {
 		}
 	}
 
-	return activeEntries, nil
+	return activeEntries
+}
+
+func (am *Registry) GetAgentServices(namespace string) []string {
+	am.mutex.RLock()
+	defer am.mutex.RUnlock()
+
+	services := make([]string, 0, len(am.entries[namespace]))
+
+	for service := range am.entries[namespace] {
+		if service != common.TRATTERIA_SERVICE_NAME {
+			services = append(services, service)
+		}
+	}
+
+	return services
 }
 
 func (am *Registry) cleanupExpiredEntires() {
@@ -115,10 +133,12 @@ func (am *Registry) removeExpiredEntries() {
 
 	now := time.Now()
 
-	for _, serviceEntries := range am.entries {
-		for key, entry := range serviceEntries {
-			if now.Sub(entry.LastHeartbeat) > EXPIRATION_DURATION {
-				delete(serviceEntries, key)
+	for _, namespaceEntries := range am.entries {
+		for _, serviceEntries := range namespaceEntries {
+			for key, entry := range serviceEntries {
+				if now.Sub(entry.LastHeartbeat) > EXPIRATION_DURATION {
+					delete(serviceEntries, key)
+				}
 			}
 		}
 	}

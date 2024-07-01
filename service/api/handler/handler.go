@@ -25,12 +25,14 @@ type registrationRequest struct {
 	IpAddress   string `json:"ipAddress"`
 	Port        int    `json:"port"`
 	ServiceName string `json:"serviceName"`
+	NameSpace   string `json:"namespace"`
 }
 
 type heartBeatRequest struct {
 	IpAddress      string `json:"ipAddress"`
 	Port           int    `json:"port"`
 	ServiceName    string `json:"serviceName"`
+	NameSpace      string `json:"namespace"`
 	RulesVersionID string `json:"rulesVersionId"`
 }
 
@@ -47,7 +49,7 @@ func (h *Handlers) RegistrationHandler(w http.ResponseWriter, r *http.Request) {
 
 	h.Logger.Info("Received a registration request.", zap.String("service", registrationRequest.ServiceName))
 
-	registrationResponse := h.Service.RegisterAgent(registrationRequest.IpAddress, registrationRequest.Port, registrationRequest.ServiceName)
+	registrationResponse := h.Service.RegisterAgent(registrationRequest.IpAddress, registrationRequest.Port, registrationRequest.ServiceName, registrationRequest.NameSpace)
 
 	// TODO: return rules belonging to this service
 
@@ -75,7 +77,7 @@ func (h *Handlers) HeartBeatHandler(w http.ResponseWriter, r *http.Request) {
 
 	h.Logger.Info("Received a heartbeat.", zap.String("service", heartBeatRequest.ServiceName))
 
-	h.Service.RegisterHeartBeat(heartBeatRequest.IpAddress, heartBeatRequest.Port, heartBeatRequest.ServiceName)
+	h.Service.RegisterHeartBeat(heartBeatRequest.IpAddress, heartBeatRequest.Port, heartBeatRequest.ServiceName, heartBeatRequest.NameSpace)
 
 	// TODO: if an agent is heartbeating with an old rule version id, notify it to fetch the latest rules
 
@@ -85,9 +87,16 @@ func (h *Handlers) HeartBeatHandler(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) GetJwksHandler(w http.ResponseWriter, r *http.Request) {
 	h.Logger.Info("Get-Jwks request received.")
 
+	namespace := r.URL.Query().Get("namespace")
+	if namespace == "" {
+		http.Error(w, "Namespace parameter is required", http.StatusBadRequest)
+
+		return
+	}
+
 	ctx := r.Context()
 
-	jwks, err := h.Service.CollectJwks(ctx)
+	jwks, err := h.Service.CollectJwks(ctx, namespace)
 	if err != nil {
 		h.Logger.Error("Error collecting JWKS from tratteria instances.", zap.Error(err))
 		http.Error(w, "Error collecting JWKS", http.StatusInternalServerError)

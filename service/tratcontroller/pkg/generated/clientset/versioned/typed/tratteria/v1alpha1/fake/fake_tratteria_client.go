@@ -32,6 +32,10 @@ func (c *FakeTratteriaV1alpha1) TraTs(namespace string) v1alpha1.TraTInterface {
 	return &FakeTraTs{c, namespace}
 }
 
+func (c *FakeTratteriaV1alpha1) TraTConfigs(namespace string) v1alpha1.TraTConfigInterface {
+	return &FakeTraTConfigs{c, namespace}
+}
+
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeTratteriaV1alpha1) RESTClient() rest.Interface {

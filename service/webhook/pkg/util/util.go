@@ -90,6 +90,14 @@ func CreatePodPatch(pod *corev1.Pod, injectInitContainer bool, agentApiPort int,
 				Name:  "HEARTBEAT_INTERVAL_MINUTES",
 				Value: strconv.Itoa(common.DATA_PLANE_HEARTBEAT_INTERVAL_MINUTES),
 			},
+			{
+				Name: "MY_NAMESPACE",
+				ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{
+						FieldPath: "metadata.namespace",
+					},
+				},
+			},
 		},
 		Ports:           []corev1.ContainerPort{{ContainerPort: 9070}},
 		ImagePullPolicy: corev1.PullNever,

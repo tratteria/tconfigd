@@ -55,6 +55,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 	// Group=tratteria.io, Version=v1alpha1
 	case v1alpha1.SchemeGroupVersion.WithResource("trats"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Tratteria().V1alpha1().TraTs().Informer()}, nil
+	case v1alpha1.SchemeGroupVersion.WithResource("tratconfigs"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Tratteria().V1alpha1().TraTConfigs().Informer()}, nil
 
 	}
 

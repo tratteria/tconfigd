@@ -26,6 +26,8 @@ import (
 type Interface interface {
 	// TraTs returns a TraTInformer.
 	TraTs() TraTInformer
+	// TraTConfigs returns a TraTConfigInformer.
+	TraTConfigs() TraTConfigInformer
 }
 
 type version struct {
@@ -42,4 +44,9 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 // TraTs returns a TraTInformer.
 func (v *version) TraTs() TraTInformer {
 	return &traTInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// TraTConfigs returns a TraTConfigInformer.
+func (v *version) TraTConfigs() TraTConfigInformer {
+	return &traTConfigInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }

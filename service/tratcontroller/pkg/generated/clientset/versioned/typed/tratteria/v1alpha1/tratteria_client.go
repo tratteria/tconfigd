@@ -29,6 +29,7 @@ import (
 type TratteriaV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	TraTsGetter
+	TraTConfigsGetter
 }
 
 // TratteriaV1alpha1Client is used to interact with features provided by the tratteria.io group.
@@ -38,6 +39,10 @@ type TratteriaV1alpha1Client struct {
 
 func (c *TratteriaV1alpha1Client) TraTs(namespace string) TraTInterface {
 	return newTraTs(c, namespace)
+}
+
+func (c *TratteriaV1alpha1Client) TraTConfigs(namespace string) TraTConfigInterface {
+	return newTraTConfigs(c, namespace)
 }
 
 // NewForConfig creates a new TratteriaV1alpha1Client for the given config.
