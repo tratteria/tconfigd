@@ -40,11 +40,13 @@ func (cd *ConfigDispatcher) dispatchConfigUtil(ctx context.Context, url string, 
 
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := cd.httpClient.Do(req)
+
 	if err != nil {
 		return fmt.Errorf("error sending request: %w", err)
 	}
 
 	defer resp.Body.Close()
+
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("received non-ok status: %d", resp.StatusCode)
 	}
@@ -61,6 +63,7 @@ func (cd *ConfigDispatcher) dispatchConfig(ctx context.Context, serviceName stri
 	for _, entry := range entries {
 		url := fmt.Sprintf("http://%s:%d%s", entry.IpAddress, entry.Port, endpoint)
 		err := cd.dispatchConfigUtil(ctx, url, config)
+
 		if err != nil {
 			dispatchErrors = append(dispatchErrors, err.Error())
 		}
@@ -94,6 +97,7 @@ func (cd *ConfigDispatcher) DispatchVerificationTokenRule(ctx context.Context, n
 	}
 
 	var dispatchErrors []string
+
 	for _, serviceName := range cd.dataplaneRegistryRetriever.GetAgentServices(namespace) {
 		err = cd.dispatchConfig(ctx, serviceName, namespace, VERIFICATION_TOKEN_RULE_WEBHOOK_ENDPOINT, jsonData)
 		if err != nil {
