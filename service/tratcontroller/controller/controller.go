@@ -45,19 +45,19 @@ const (
 const (
 	ControllerAgentName = "trat-controller"
 	TraTKind            = "TraT"
-	TraTConfigKind      = "TraTConfig"
+	TratteriaConfigKind = "TratteriaConfig"
 )
 
 type Controller struct {
-	kubeclientset     kubernetes.Interface
-	sampleclientset   clientset.Interface
-	traTsLister       listers.TraTLister
-	traTConfigsLister listers.TraTConfigLister
-	traTsSynced       cache.InformerSynced
-	traTConfigsSynced cache.InformerSynced
-	workqueue         workqueue.TypedRateLimitingInterface[string]
-	recorder          record.EventRecorder
-	configDispatcher  *configdispatcher.ConfigDispatcher
+	kubeclientset          kubernetes.Interface
+	sampleclientset        clientset.Interface
+	traTsLister            listers.TraTLister
+	tratteriaConfigsLister listers.TratteriaConfigLister
+	traTsSynced            cache.InformerSynced
+	tratteriaConfigsSynced cache.InformerSynced
+	workqueue              workqueue.TypedRateLimitingInterface[string]
+	recorder               record.EventRecorder
+	configDispatcher       *configdispatcher.ConfigDispatcher
 }
 
 func NewController(
@@ -65,7 +65,7 @@ func NewController(
 	kubeclientset kubernetes.Interface,
 	sampleclientset clientset.Interface,
 	traTInformer informers.TraTInformer,
-	traTConfigInformer informers.TraTConfigInformer,
+	tratteriaConfigInformer informers.TratteriaConfigInformer,
 	configDispatcher *configdispatcher.ConfigDispatcher) *Controller {
 	logger := klog.FromContext(ctx)
 
@@ -85,15 +85,15 @@ func NewController(
 	)
 
 	controller := &Controller{
-		kubeclientset:     kubeclientset,
-		sampleclientset:   sampleclientset,
-		traTsLister:       traTInformer.Lister(),
-		traTConfigsLister: traTConfigInformer.Lister(),
-		traTsSynced:       traTInformer.Informer().HasSynced,
-		traTConfigsSynced: traTConfigInformer.Informer().HasSynced,
-		workqueue:         workqueue.NewTypedRateLimitingQueue(ratelimiter),
-		recorder:          recorder,
-		configDispatcher:  configDispatcher,
+		kubeclientset:          kubeclientset,
+		sampleclientset:        sampleclientset,
+		traTsLister:            traTInformer.Lister(),
+		tratteriaConfigsLister: tratteriaConfigInformer.Lister(),
+		traTsSynced:            traTInformer.Informer().HasSynced,
+		tratteriaConfigsSynced: tratteriaConfigInformer.Informer().HasSynced,
+		workqueue:              workqueue.NewTypedRateLimitingQueue(ratelimiter),
+		recorder:               recorder,
+		configDispatcher:       configDispatcher,
 	}
 
 	logger.Info("Setting up event handlers")
@@ -102,7 +102,7 @@ func NewController(
 		AddFunc: controller.enqueueObject,
 	})
 
-	traTConfigInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	tratteriaConfigInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: controller.enqueueObject,
 	})
 
@@ -120,8 +120,8 @@ func (c *Controller) enqueueObject(obj interface{}) {
 	switch obj.(type) {
 	case *tratteria1alpha1.TraT:
 		c.workqueue.Add(TraTKind + "/" + key)
-	case *tratteria1alpha1.TraTConfig:
-		c.workqueue.Add(TraTConfigKind + "/" + key)
+	case *tratteria1alpha1.TratteriaConfig:
+		c.workqueue.Add(TratteriaConfigKind + "/" + key)
 	default:
 		utilruntime.HandleError(fmt.Errorf("unknown type cannot be enqueued: %T", obj))
 	}
@@ -205,8 +205,8 @@ func (c *Controller) syncHandler(ctx context.Context, key string) error {
 	switch resourceType {
 	case TraTKind:
 		return c.handleTraT(ctx, key)
-	case TraTConfigKind:
-		return c.handleTratConfig(ctx, key)
+	case TratteriaConfigKind:
+		return c.handleTratteriaConfig(ctx, key)
 	default:
 		utilruntime.HandleError(fmt.Errorf("unhandled resource type: %s", resourceType))
 

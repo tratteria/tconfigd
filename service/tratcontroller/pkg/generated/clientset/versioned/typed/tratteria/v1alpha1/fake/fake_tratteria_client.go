@@ -32,8 +32,8 @@ func (c *FakeTratteriaV1alpha1) TraTs(namespace string) v1alpha1.TraTInterface {
 	return &FakeTraTs{c, namespace}
 }
 
-func (c *FakeTratteriaV1alpha1) TraTConfigs(namespace string) v1alpha1.TraTConfigInterface {
-	return &FakeTraTConfigs{c, namespace}
+func (c *FakeTratteriaV1alpha1) TratteriaConfigs(namespace string) v1alpha1.TratteriaConfigInterface {
+	return &FakeTratteriaConfigs{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate

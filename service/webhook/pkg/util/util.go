@@ -76,7 +76,7 @@ func CreatePodPatch(pod *corev1.Pod, injectInitContainer bool, agentApiPort int,
 			},
 			{
 				Name:  "TCONFIGD_URL",
-				Value: "http://tconfigd.tratteria.svc.cluster.local:9060",
+				Value: "http://tconfigd.tratteria-system.svc.cluster.local:9060",
 			},
 			{
 				Name:  "AGENT_API_PORT",

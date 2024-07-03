@@ -26,8 +26,8 @@ import (
 type Interface interface {
 	// TraTs returns a TraTInformer.
 	TraTs() TraTInformer
-	// TraTConfigs returns a TraTConfigInformer.
-	TraTConfigs() TraTConfigInformer
+	// TratteriaConfigs returns a TratteriaConfigInformer.
+	TratteriaConfigs() TratteriaConfigInformer
 }
 
 type version struct {
@@ -46,7 +46,7 @@ func (v *version) TraTs() TraTInformer {
 	return &traTInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
-// TraTConfigs returns a TraTConfigInformer.
-func (v *version) TraTConfigs() TraTConfigInformer {
-	return &traTConfigInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+// TratteriaConfigs returns a TratteriaConfigInformer.
+func (v *version) TratteriaConfigs() TratteriaConfigInformer {
+	return &tratteriaConfigInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }

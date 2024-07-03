@@ -116,12 +116,12 @@ func (traT *TraT) GetGenerationEndpointRule() (*GenerationEndpointRule, error) {
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-type TraTConfig struct {
+type TratteriaConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   TraTConfigSpec   `json:"spec"`
-	Status TratConfigStatus `json:"status"`
+	Spec   TratteriaConfigSpec   `json:"spec"`
+	Status TratteriaConfigStatus `json:"status"`
 }
 
 type SubjectTokens struct {
@@ -155,22 +155,18 @@ type Token struct {
 	Value string `json:"value"`
 }
 
-type Spiffe struct {
-	AuthorizedServiceIDs []string `json:"authorizedServiceIDs"`
-}
-
-type TraTConfigSpec struct {
+type TratteriaConfigSpec struct {
 	Token struct {
 		Issuer   string `json:"issuer"`
 		Audience string `json:"audience"`
 		LifeTime string `json:"lifeTime"`
 	} `json:"token"`
-	SubjectTokens       SubjectTokens       `json:"subjectTokens"`
-	AccessEvaluationAPI AccessEvaluationAPI `json:"accessEvaluationAPI"`
-	Spiffe              Spiffe              `json:"spiffe"`
+	SubjectTokens                       SubjectTokens       `json:"subjectTokens"`
+	AccessEvaluationAPI                 AccessEvaluationAPI `json:"accessEvaluationAPI"`
+	TokenGenerationAuthorizedServiceIds []string            `json:"tokenGenerationAuthorizedServiceIds"`
 }
 
-type TratConfigStatus struct {
+type TratteriaConfigStatus struct {
 	VerificationApplied bool   `json:"verificationApplied"`
 	GenerationApplied   bool   `json:"generationApplied"`
 	Status              string `json:"status"`
@@ -180,11 +176,11 @@ type TratConfigStatus struct {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-type TraTConfigList struct {
+type TratteriaConfigList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
 
-	Items []TraTConfig `json:"items"`
+	Items []TratteriaConfig `json:"items"`
 }
 
 type VerificationTokenRule struct {
@@ -192,16 +188,16 @@ type VerificationTokenRule struct {
 	Audience string `json:"audience"`
 }
 
-type GenerationTokenRule TraTConfigSpec
+type GenerationTokenRule TratteriaConfigSpec
 
-func (traTConfig *TraTConfig) GetVerificationTokenRule() (*VerificationTokenRule, error) {
+func (tratteriaConfig *TratteriaConfig) GetVerificationTokenRule() (*VerificationTokenRule, error) {
 	return &VerificationTokenRule{
-		Issuer:   traTConfig.Spec.Token.Issuer,
-		Audience: traTConfig.Spec.Token.Audience,
+		Issuer:   tratteriaConfig.Spec.Token.Issuer,
+		Audience: tratteriaConfig.Spec.Token.Audience,
 	}, nil
 }
 
-func (traTConfig *TraTConfig) GetGenerationTokenRule() (*GenerationTokenRule, error) {
-	generationTokenRule := GenerationTokenRule(traTConfig.Spec)
+func (tratteriaConfig *TratteriaConfig) GetGenerationTokenRule() (*GenerationTokenRule, error) {
+	generationTokenRule := GenerationTokenRule(tratteriaConfig.Spec)
 	return &generationTokenRule, nil
 }

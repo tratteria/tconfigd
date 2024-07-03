@@ -46,10 +46,10 @@ func (tc *TraTController) Run() error {
 
 	tratteriaInformerFactory := informers.NewSharedInformerFactory(tratteriaClient, time.Second*30)
 	tratInformer := tratteriaInformerFactory.Tratteria().V1alpha1().TraTs()
-	tratConfigInformer := tratteriaInformerFactory.Tratteria().V1alpha1().TraTConfigs()
+	tratteriaConfigInformer := tratteriaInformerFactory.Tratteria().V1alpha1().TratteriaConfigs()
 
 
-	controller := controller.NewController(ctx, kubeClient, tratteriaClient, tratInformer, tratConfigInformer, tc.ConfigDispatcher)
+	controller := controller.NewController(ctx, kubeClient, tratteriaClient, tratInformer, tratteriaConfigInformer, tc.ConfigDispatcher)
 
 	tratteriaInformerFactory.Start(ctx.Done())
 

@@ -26,10 +26,10 @@ type TraTListerExpansion interface{}
 // TraTNamespaceLister.
 type TraTNamespaceListerExpansion interface{}
 
-// TraTConfigListerExpansion allows custom methods to be added to
-// TraTConfigLister.
-type TraTConfigListerExpansion interface{}
+// TratteriaConfigListerExpansion allows custom methods to be added to
+// TratteriaConfigLister.
+type TratteriaConfigListerExpansion interface{}
 
-// TraTConfigNamespaceListerExpansion allows custom methods to be added to
-// TraTConfigNamespaceLister.
-type TraTConfigNamespaceListerExpansion interface{}
+// TratteriaConfigNamespaceListerExpansion allows custom methods to be added to
+// TratteriaConfigNamespaceLister.
+type TratteriaConfigNamespaceListerExpansion interface{}
