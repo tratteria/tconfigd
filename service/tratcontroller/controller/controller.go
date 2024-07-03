@@ -50,7 +50,7 @@ const (
 
 type Controller struct {
 	kubeclientset          kubernetes.Interface
-	sampleclientset        clientset.Interface
+	tratteriaclientset     clientset.Interface
 	traTsLister            listers.TraTLister
 	tratteriaConfigsLister listers.TratteriaConfigLister
 	traTsSynced            cache.InformerSynced
@@ -63,7 +63,7 @@ type Controller struct {
 func NewController(
 	ctx context.Context,
 	kubeclientset kubernetes.Interface,
-	sampleclientset clientset.Interface,
+	tratteriaclientset clientset.Interface,
 	traTInformer informers.TraTInformer,
 	tratteriaConfigInformer informers.TratteriaConfigInformer,
 	configDispatcher *configdispatcher.ConfigDispatcher) *Controller {
@@ -86,7 +86,7 @@ func NewController(
 
 	controller := &Controller{
 		kubeclientset:          kubeclientset,
-		sampleclientset:        sampleclientset,
+		tratteriaclientset:     tratteriaclientset,
 		traTsLister:            traTInformer.Lister(),
 		tratteriaConfigsLister: tratteriaConfigInformer.Lister(),
 		traTsSynced:            traTInformer.Informer().HasSynced,
