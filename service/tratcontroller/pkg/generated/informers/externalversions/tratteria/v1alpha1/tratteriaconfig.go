@@ -32,59 +32,59 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 )
 
-// TraTConfigInformer provides access to a shared informer and lister for
-// TraTConfigs.
-type TraTConfigInformer interface {
+// TratteriaConfigInformer provides access to a shared informer and lister for
+// TratteriaConfigs.
+type TratteriaConfigInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.TraTConfigLister
+	Lister() v1alpha1.TratteriaConfigLister
 }
 
-type traTConfigInformer struct {
+type tratteriaConfigInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
 	namespace        string
 }
 
-// NewTraTConfigInformer constructs a new informer for TraTConfig type.
+// NewTratteriaConfigInformer constructs a new informer for TratteriaConfig type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory trattprint and number of connections to the server.
-func NewTraTConfigInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredTraTConfigInformer(client, namespace, resyncPeriod, indexers, nil)
+func NewTratteriaConfigInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredTratteriaConfigInformer(client, namespace, resyncPeriod, indexers, nil)
 }
 
-// NewFilteredTraTConfigInformer constructs a new informer for TraTConfig type.
+// NewFilteredTratteriaConfigInformer constructs a new informer for TratteriaConfig type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory trattprint and number of connections to the server.
-func NewFilteredTraTConfigInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+func NewFilteredTratteriaConfigInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.TratteriaV1alpha1().TraTConfigs(namespace).List(context.TODO(), options)
+				return client.TratteriaV1alpha1().TratteriaConfigs(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.TratteriaV1alpha1().TraTConfigs(namespace).Watch(context.TODO(), options)
+				return client.TratteriaV1alpha1().TratteriaConfigs(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&tratteriav1alpha1.TraTConfig{},
+		&tratteriav1alpha1.TratteriaConfig{},
 		resyncPeriod,
 		indexers,
 	)
 }
 
-func (f *traTConfigInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredTraTConfigInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+func (f *tratteriaConfigInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredTratteriaConfigInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
 }
 
-func (f *traTConfigInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&tratteriav1alpha1.TraTConfig{}, f.defaultInformer)
+func (f *tratteriaConfigInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&tratteriav1alpha1.TratteriaConfig{}, f.defaultInformer)
 }
 
-func (f *traTConfigInformer) Lister() v1alpha1.TraTConfigLister {
-	return v1alpha1.NewTraTConfigLister(f.Informer().GetIndexer())
+func (f *tratteriaConfigInformer) Lister() v1alpha1.TratteriaConfigLister {
+	return v1alpha1.NewTratteriaConfigLister(f.Informer().GetIndexer())
 }

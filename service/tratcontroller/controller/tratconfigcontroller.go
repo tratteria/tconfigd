@@ -13,7 +13,7 @@ import (
 	tratteria1alpha1 "github.com/tratteria/tconfigd/tratcontroller/pkg/apis/tratteria/v1alpha1"
 )
 
-func (c *Controller) handleTratConfig(ctx context.Context, key string) error {
+func (c *Controller) handleTratteriaConfig(ctx context.Context, key string) error {
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 
 	if err != nil {
@@ -22,10 +22,10 @@ func (c *Controller) handleTratConfig(ctx context.Context, key string) error {
 		return nil
 	}
 
-	traTconfig, err := c.traTConfigsLister.TraTConfigs(namespace).Get(name)
+	tratteriaConfig, err := c.tratteriaConfigsLister.TratteriaConfigs(namespace).Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			utilruntime.HandleError(fmt.Errorf("tratconfig '%s' in work queue no longer exists", key))
+			utilruntime.HandleError(fmt.Errorf("tratteria config '%s' in work queue no longer exists", key))
 
 			return nil
 		}
@@ -33,14 +33,14 @@ func (c *Controller) handleTratConfig(ctx context.Context, key string) error {
 		return err
 	}
 
-	verificationTokenRule, err := traTconfig.GetVerificationTokenRule()
+	verificationTokenRule, err := tratteriaConfig.GetVerificationTokenRule()
 	if err != nil {
-		messagedErr := fmt.Errorf("error retrieving verification token rule from %s tratconfig: %w", name, err)
+		messagedErr := fmt.Errorf("error retrieving verification token rule from %s tratteria config: %w", name, err)
 
-		c.recorder.Event(traTconfig, corev1.EventTypeWarning, "error", messagedErr.Error())
+		c.recorder.Event(tratteriaConfig, corev1.EventTypeWarning, "error", messagedErr.Error())
 
-		if updateErr := c.updateErrorTraTConfigStatus(ctx, traTconfig, VerificationApplicationStage, err); updateErr != nil {
-			return fmt.Errorf("failed to update error status for %s tratconfig: %w", name, updateErr)
+		if updateErr := c.updateErrorTratteriaConfigStatus(ctx, tratteriaConfig, VerificationApplicationStage, err); updateErr != nil {
+			return fmt.Errorf("failed to update error status for %s tratteria config: %w", name, updateErr)
 		}
 
 		return messagedErr
@@ -48,27 +48,27 @@ func (c *Controller) handleTratConfig(ctx context.Context, key string) error {
 
 	err = c.configDispatcher.DispatchVerificationTokenRule(ctx, namespace, verificationTokenRule)
 	if err != nil {
-		messagedErr := fmt.Errorf("error dispatching %s tratconfig verification token rule: %w", name, err)
+		messagedErr := fmt.Errorf("error dispatching %s tratteria config verification token rule: %w", name, err)
 
-		c.recorder.Event(traTconfig, corev1.EventTypeWarning, "error", messagedErr.Error())
+		c.recorder.Event(tratteriaConfig, corev1.EventTypeWarning, "error", messagedErr.Error())
 
-		if updateErr := c.updateErrorTraTConfigStatus(ctx, traTconfig, VerificationApplicationStage, err); updateErr != nil {
-			return fmt.Errorf("failed to update error status for %s tratconfig: %w", name, updateErr)
+		if updateErr := c.updateErrorTratteriaConfigStatus(ctx, tratteriaConfig, VerificationApplicationStage, err); updateErr != nil {
+			return fmt.Errorf("failed to update error status for %s tratteria config: %w", name, updateErr)
 		}
 
 		return messagedErr
 	}
 
-	c.recorder.Event(traTconfig, corev1.EventTypeNormal, string(VerificationApplicationStage)+" successful", string(VerificationApplicationStage)+" completed successfully")
+	c.recorder.Event(tratteriaConfig, corev1.EventTypeNormal, string(VerificationApplicationStage)+" successful", string(VerificationApplicationStage)+" completed successfully")
 
-	generationTokenRule, err := traTconfig.GetGenerationTokenRule()
+	generationTokenRule, err := tratteriaConfig.GetGenerationTokenRule()
 	if err != nil {
-		messagedErr := fmt.Errorf("error retrieving generation token rules from %s tratconfig: %w", name, err)
+		messagedErr := fmt.Errorf("error retrieving generation token rules from %s tratteria config: %w", name, err)
 
-		c.recorder.Event(traTconfig, corev1.EventTypeWarning, "error", messagedErr.Error())
+		c.recorder.Event(tratteriaConfig, corev1.EventTypeWarning, "error", messagedErr.Error())
 
-		if updateErr := c.updateErrorTraTConfigStatus(ctx, traTconfig, GenerationApplicationStage, err); updateErr != nil {
-			return fmt.Errorf("failed to update error status for %s tratconfig: %w", name, updateErr)
+		if updateErr := c.updateErrorTratteriaConfigStatus(ctx, tratteriaConfig, GenerationApplicationStage, err); updateErr != nil {
+			return fmt.Errorf("failed to update error status for %s tratteria config: %w", name, updateErr)
 		}
 
 		return messagedErr
@@ -76,53 +76,53 @@ func (c *Controller) handleTratConfig(ctx context.Context, key string) error {
 
 	err = c.configDispatcher.DispatchGenerationTokentRule(ctx, namespace, generationTokenRule)
 	if err != nil {
-		messagedErr := fmt.Errorf("error dispatching %s tratconfig generation token rule: %w", name, err)
+		messagedErr := fmt.Errorf("error dispatching %s tratteria config generation token rule: %w", name, err)
 
-		c.recorder.Event(traTconfig, corev1.EventTypeWarning, "error", messagedErr.Error())
+		c.recorder.Event(tratteriaConfig, corev1.EventTypeWarning, "error", messagedErr.Error())
 
-		if updateErr := c.updateErrorTraTConfigStatus(ctx, traTconfig, GenerationApplicationStage, err); updateErr != nil {
-			return fmt.Errorf("failed to update error status for %s tratconfig: %w", name, updateErr)
+		if updateErr := c.updateErrorTratteriaConfigStatus(ctx, tratteriaConfig, GenerationApplicationStage, err); updateErr != nil {
+			return fmt.Errorf("failed to update error status for %s tratteria config: %w", name, updateErr)
 		}
 
 		return messagedErr
 	}
 
-	if updateErr := c.updateSuccessTratConfigStatus(ctx, traTconfig); updateErr != nil {
-		return fmt.Errorf("failed to update success status for %s tratconfig: %w", name, updateErr)
+	if updateErr := c.updateSuccessTratteriaConfigStatus(ctx, tratteriaConfig); updateErr != nil {
+		return fmt.Errorf("failed to update success status for %s tratteria config: %w", name, updateErr)
 	}
 
-	c.recorder.Event(traTconfig, corev1.EventTypeNormal, string(GenerationApplicationStage)+" successful", string(GenerationApplicationStage)+" completed successfully")
+	c.recorder.Event(tratteriaConfig, corev1.EventTypeNormal, string(GenerationApplicationStage)+" successful", string(GenerationApplicationStage)+" completed successfully")
 
 	return nil
 }
 
-func (c *Controller) updateErrorTraTConfigStatus(ctx context.Context, traTConfig *tratteria1alpha1.TraTConfig, stage Stage, err error) error {
-	traTConfigCopy := traTConfig.DeepCopy()
+func (c *Controller) updateErrorTratteriaConfigStatus(ctx context.Context, tratteriaConfig *tratteria1alpha1.TratteriaConfig, stage Stage, err error) error {
+	tratteriaConfigCopy := tratteriaConfig.DeepCopy()
 
-	traTConfigCopy.Status.VerificationApplied = false
-	traTConfigCopy.Status.GenerationApplied = false
-	traTConfigCopy.Status.Status = string(PendingStatus)
-	traTConfigCopy.Status.Retries += 1
+	tratteriaConfigCopy.Status.VerificationApplied = false
+	tratteriaConfigCopy.Status.GenerationApplied = false
+	tratteriaConfigCopy.Status.Status = string(PendingStatus)
+	tratteriaConfigCopy.Status.Retries += 1
 
 	if stage == GenerationApplicationStage {
-		traTConfigCopy.Status.VerificationApplied = true
+		tratteriaConfigCopy.Status.VerificationApplied = true
 	}
 
-	traTConfigCopy.Status.LastErrorMessage = err.Error()
+	tratteriaConfigCopy.Status.LastErrorMessage = err.Error()
 
-	_, updateErr := c.sampleclientset.TratteriaV1alpha1().TraTConfigs(traTConfig.Namespace).UpdateStatus(ctx, traTConfigCopy, metav1.UpdateOptions{})
+	_, updateErr := c.sampleclientset.TratteriaV1alpha1().TratteriaConfigs(tratteriaConfig.Namespace).UpdateStatus(ctx, tratteriaConfigCopy, metav1.UpdateOptions{})
 
 	return updateErr
 }
 
-func (c *Controller) updateSuccessTratConfigStatus(ctx context.Context, traTConfig *tratteria1alpha1.TraTConfig) error {
-	traTConfigCopy := traTConfig.DeepCopy()
+func (c *Controller) updateSuccessTratteriaConfigStatus(ctx context.Context, tratteriaConfig *tratteria1alpha1.TratteriaConfig) error {
+	tratteriaConfigCopy := tratteriaConfig.DeepCopy()
 
-	traTConfigCopy.Status.VerificationApplied = true
-	traTConfigCopy.Status.GenerationApplied = true
-	traTConfigCopy.Status.Status = string(DoneStatus)
+	tratteriaConfigCopy.Status.VerificationApplied = true
+	tratteriaConfigCopy.Status.GenerationApplied = true
+	tratteriaConfigCopy.Status.Status = string(DoneStatus)
 
-	_, updateErr := c.sampleclientset.TratteriaV1alpha1().TraTConfigs(traTConfig.Namespace).UpdateStatus(ctx, traTConfigCopy, metav1.UpdateOptions{})
+	_, updateErr := c.sampleclientset.TratteriaV1alpha1().TratteriaConfigs(tratteriaConfig.Namespace).UpdateStatus(ctx, tratteriaConfigCopy, metav1.UpdateOptions{})
 
 	return updateErr
 }

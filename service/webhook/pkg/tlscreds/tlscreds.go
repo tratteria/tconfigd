@@ -14,12 +14,13 @@ import (
 )
 
 const (
-	CertsDirPath  = "/etc/webhook/certs"
-	CertPath      = "/etc/webhook/certs/tls.crt"
-	KeyPath       = "/etc/webhook/certs/tls.key"
-	certsFileMode = os.FileMode(0o644)
-	keyFileMode   = os.FileMode(0o600)
-	certsDirMode  = os.FileMode(0o755)
+	CertsDirPath     = "/etc/webhook/certs"
+	CertPath         = "/etc/webhook/certs/tls.crt"
+	KeyPath          = "/etc/webhook/certs/tls.key"
+	certsFileMode    = os.FileMode(0o644)
+	keyFileMode      = os.FileMode(0o600)
+	certsDirMode     = os.FileMode(0o755)
+	JWTSourceTimeout = 15 * time.Second
 )
 
 func SetupTLSCertAndKeyFromSPIRE() error {
@@ -51,7 +52,7 @@ func SetupTLSCertAndKeyFromSPIRE() error {
 }
 
 func GetSPIREWorkLoadApiClient() (*workloadapi.Client, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), JWTSourceTimeout)
 	defer cancel()
 
 	spireClient, err := workloadapi.New(ctx)
