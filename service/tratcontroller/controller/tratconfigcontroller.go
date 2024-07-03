@@ -110,7 +110,7 @@ func (c *Controller) updateErrorTratteriaConfigStatus(ctx context.Context, tratt
 
 	tratteriaConfigCopy.Status.LastErrorMessage = err.Error()
 
-	_, updateErr := c.sampleclientset.TratteriaV1alpha1().TratteriaConfigs(tratteriaConfig.Namespace).UpdateStatus(ctx, tratteriaConfigCopy, metav1.UpdateOptions{})
+	_, updateErr := c.tratteriaclientset.TratteriaV1alpha1().TratteriaConfigs(tratteriaConfig.Namespace).UpdateStatus(ctx, tratteriaConfigCopy, metav1.UpdateOptions{})
 
 	return updateErr
 }
@@ -122,7 +122,7 @@ func (c *Controller) updateSuccessTratteriaConfigStatus(ctx context.Context, tra
 	tratteriaConfigCopy.Status.GenerationApplied = true
 	tratteriaConfigCopy.Status.Status = string(DoneStatus)
 
-	_, updateErr := c.sampleclientset.TratteriaV1alpha1().TratteriaConfigs(tratteriaConfig.Namespace).UpdateStatus(ctx, tratteriaConfigCopy, metav1.UpdateOptions{})
+	_, updateErr := c.tratteriaclientset.TratteriaV1alpha1().TratteriaConfigs(tratteriaConfig.Namespace).UpdateStatus(ctx, tratteriaConfigCopy, metav1.UpdateOptions{})
 
 	return updateErr
 }
