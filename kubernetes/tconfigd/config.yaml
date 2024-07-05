@@ -1,3 +1,0 @@
-enableTratInterception: "true"
-agentApiPort: "9040"
-agentInterceptorPort: "9050"

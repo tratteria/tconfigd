@@ -5,11 +5,11 @@ metadata:
   labels:
     tratteria.io/webhook: "true"
 webhooks:
-  - name: tratteria-agent-injector.tratteria.com
+  - name: tratteria-agent-injector.tratteria.io
     clientConfig:
       service:
         name: tconfigd
-        namespace: tratteria
+        namespace: tratteria-system
         path: "/inject-tratteria-agents"
       caBundle: 
     rules:

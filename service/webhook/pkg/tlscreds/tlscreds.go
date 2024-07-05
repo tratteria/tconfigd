@@ -23,8 +23,8 @@ const (
 	JWTSourceTimeout = 15 * time.Second
 )
 
-func SetupTLSCertAndKeyFromSPIRE() error {
-	spireClient, err := GetSPIREWorkLoadApiClient()
+func SetupTLSCertAndKeyFromSPIRE(spiffeEndpointSocket string) error {
+	spireClient, err := GetSPIREWorkLoadApiClient(spiffeEndpointSocket)
 	if err != nil {
 		return fmt.Errorf("unable to create spire workload api client: %w", err)
 	}
@@ -51,11 +51,11 @@ func SetupTLSCertAndKeyFromSPIRE() error {
 	return nil
 }
 
-func GetSPIREWorkLoadApiClient() (*workloadapi.Client, error) {
+func GetSPIREWorkLoadApiClient(socketPath string) (*workloadapi.Client, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), JWTSourceTimeout)
 	defer cancel()
 
-	spireClient, err := workloadapi.New(ctx)
+	spireClient, err := workloadapi.New(ctx, workloadapi.WithAddr(socketPath))
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +65,7 @@ func GetSPIREWorkLoadApiClient() (*workloadapi.Client, error) {
 
 func WaitForCertificates() error {
 	sleep := 500 * time.Millisecond
-	maxRetries := 360
+	maxRetries := 30
 
 	for i := 1; i <= maxRetries; i++ {
 		time.Sleep(sleep)
