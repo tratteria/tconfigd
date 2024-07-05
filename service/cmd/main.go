@@ -71,6 +71,7 @@ func main() {
 			EnableTratInterception: bool(appConfig.EnableTratInterception),
 			AgentApiPort:           int(appConfig.AgentApiPort),
 			AgentInterceptorPort:   int(appConfig.AgentInterceptorPort),
+			SpiffeEndpointSocket:   appConfig.SpiffeEndpointSocket,
 			Logger:                 logger,
 		}
 

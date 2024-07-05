@@ -1,7 +1,6 @@
-# Applying Spire Configurations
-echo "\nApplying Spire Configurations...\n"
+echo "\nDeploying Spire...\n"
 
-kubectl create namespace spire
+kubectl apply -f namespaces.yaml
 
 # Create Server Bundle Configmap, Role & ClusterRoleBinding
 kubectl apply \
@@ -52,8 +51,8 @@ kubectl exec -n spire spire-server-0 -- \
     -node
 
 kubectl exec -n spire spire-server-0 -- \
-    /opt/spire/bin/spire-server entry create --dns tconfigd.tratteria.svc\
-    -spiffeID spiffe://tratteria.io/tratteria \
+    /opt/spire/bin/spire-server entry create --dns tconfigd.tratteria-system.svc\
+    -spiffeID spiffe://tratteria.io/tconfigd \
     -parentID spiffe://tratteria.io/ns/spire/sa/spire-agent \
-    -selector k8s:ns:tratteria \
+    -selector k8s:ns:tratteria-system \
     -selector k8s:sa:tconfigd-service-account

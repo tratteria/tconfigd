@@ -16,11 +16,12 @@ type Webhook struct {
 	EnableTratInterception bool
 	AgentApiPort           int
 	AgentInterceptorPort   int
+	SpiffeEndpointSocket   string
 	Logger                 *zap.Logger
 }
 
-func (webhook *Webhook) Run() error {
-	handler := handler.NewHandlers(webhook.EnableTratInterception, webhook.AgentApiPort, webhook.AgentInterceptorPort, webhook.Logger)
+func (wh *Webhook) Run() error {
+	handler := handler.NewHandlers(wh.EnableTratInterception, wh.AgentApiPort, wh.AgentInterceptorPort, wh.Logger)
 	router := mux.NewRouter()
 
 	initializeRoutes(router, handler)
@@ -32,16 +33,16 @@ func (webhook *Webhook) Run() error {
 		ReadTimeout:  15 * time.Second,
 	}
 
-	if err := tlscreds.SetupTLSCertAndKeyFromSPIRE(); err != nil {
-		webhook.Logger.Error("Error setting up TLS creds", zap.Error(err))
+	if err := tlscreds.SetupTLSCertAndKeyFromSPIRE(wh.SpiffeEndpointSocket); err != nil {
+		wh.Logger.Error("Error setting up TLS creds", zap.Error(err))
 
 		return fmt.Errorf("error setting up TLS creds: %w", err)
 	}
 
-	webhook.Logger.Info("Starting webhook server with TLS on port 443")
+	wh.Logger.Info("Starting webhook server with TLS on port 443")
 
 	if err := srv.ListenAndServeTLS(tlscreds.CertPath, tlscreds.KeyPath); err != nil && err != http.ErrServerClosed {
-		webhook.Logger.Error("Failed to start the webhook server", zap.Error(err))
+		wh.Logger.Error("Failed to start the webhook server", zap.Error(err))
 
 		return fmt.Errorf("failed to start the webhook server: %w", err)
 	}
