@@ -6,11 +6,12 @@ import (
 	"strconv"
 
 	"github.com/mattbaird/jsonpatch"
+	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/tratteria/tconfigd/common"
 	corev1 "k8s.io/api/core/v1"
 )
 
-func CreatePodPatch(pod *corev1.Pod, injectInitContainer bool, agentApiPort int, agentInterceptorPort int) ([]jsonpatch.JsonPatchOperation, error) {
+func CreatePodPatch(pod *corev1.Pod, injectInitContainer bool, agentHttpsApiPort int, agentHttpApiPort int, agentInterceptorPort int, spiffeEndpointSocket string, tconfigdSpiffeId spiffeid.ID) ([]jsonpatch.JsonPatchOperation, error) {
 	var patch []jsonpatch.JsonPatchOperation
 
 	shouldInject, ok := pod.Annotations["tratteria/inject-sidecar"]
@@ -18,11 +19,10 @@ func CreatePodPatch(pod *corev1.Pod, injectInitContainer bool, agentApiPort int,
 		return patch, nil
 	}
 
-	serviceName, nameOk := pod.Annotations["tratteria/service-name"]
 	servicePort, portOk := pod.Annotations["tratteria/service-port"]
 
-	if !nameOk || !portOk {
-		return nil, fmt.Errorf("service-name and service-port must be specified when inject-sidecar is 'true'")
+	if !portOk {
+		return nil, fmt.Errorf("service-port must be specified when inject-sidecar is 'true'")
 	}
 
 	if _, err := strconv.Atoi(servicePort); err != nil {
@@ -67,20 +67,28 @@ func CreatePodPatch(pod *corev1.Pod, injectInitContainer bool, agentApiPort int,
 		Image: "tratteria-agent:latest",
 		Env: []corev1.EnvVar{
 			{
-				Name:  "SERVICE_NAME",
-				Value: serviceName,
-			},
-			{
 				Name:  "SERVICE_PORT",
 				Value: servicePort,
 			},
 			{
 				Name:  "TCONFIGD_URL",
-				Value: "http://tconfigd.tratteria-system.svc.cluster.local:9060",
+				Value: "https://tconfigd.tratteria-system.svc.cluster.local:8443",
 			},
 			{
-				Name:  "AGENT_API_PORT",
-				Value: strconv.Itoa(agentApiPort),
+				Name:  "TCONFIGD_SPIFFE_ID",
+				Value: tconfigdSpiffeId.String(),
+			},
+			{
+				Name:  "SPIFFE_ENDPOINT_SOCKET",
+				Value: spiffeEndpointSocket,
+			},
+			{
+				Name:  "AGENT_HTTPS_API_PORT",
+				Value: strconv.Itoa(agentHttpsApiPort),
+			},
+			{
+				Name:  "AGENT_HTTP_API_PORT",
+				Value: strconv.Itoa(agentHttpApiPort),
 			},
 			{
 				Name:  "AGENT_INTERCEPTOR_PORT",
@@ -101,6 +109,13 @@ func CreatePodPatch(pod *corev1.Pod, injectInitContainer bool, agentApiPort int,
 		},
 		Ports:           []corev1.ContainerPort{{ContainerPort: 9070}},
 		ImagePullPolicy: corev1.PullNever,
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      "spire-agent-socket",
+				MountPath: "/run/spire/sockets",
+				ReadOnly:  true,
+			},
+		},
 	}
 
 	sidecarJson, err := json.Marshal(sidecar)

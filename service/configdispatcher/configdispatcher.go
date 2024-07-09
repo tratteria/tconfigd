@@ -5,12 +5,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 
 	"github.com/tratteria/tconfigd/common"
 	"github.com/tratteria/tconfigd/dataplaneregistry"
 	"github.com/tratteria/tconfigd/tratcontroller/pkg/apis/tratteria/v1alpha1"
+
+	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
+	"github.com/spiffe/go-spiffe/v2/workloadapi"
 )
 
 const (
@@ -25,10 +29,18 @@ type ConfigDispatcher struct {
 	httpClient                 *http.Client
 }
 
-func NewConfigDispatcher(dataplaneRegistryRetriever dataplaneregistry.Retriever, httpClient *http.Client) *ConfigDispatcher {
+func NewConfigDispatcher(dataplaneRegistryRetriever dataplaneregistry.Retriever, x509Source *workloadapi.X509Source) *ConfigDispatcher {
+	tlsConfig := tlsconfig.MTLSClientConfig(x509Source, x509Source, tlsconfig.AuthorizeAny())
+
+	client := http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: tlsConfig,
+		},
+	}
+
 	return &ConfigDispatcher{
 		dataplaneRegistryRetriever: dataplaneRegistryRetriever,
-		httpClient:                 httpClient,
+		httpClient:                 &client,
 	}
 }
 
@@ -48,7 +60,11 @@ func (cd *ConfigDispatcher) dispatchConfigUtil(ctx context.Context, url string, 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("received non-ok status: %d", resp.StatusCode)
+		bodyBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("error reading response body: %w", err)
+		}
+		return fmt.Errorf("received non-ok status: %d, response: %s", resp.StatusCode, string(bodyBytes))
 	}
 
 	return nil
@@ -61,7 +77,7 @@ func (cd *ConfigDispatcher) dispatchConfig(ctx context.Context, serviceName stri
 	var dispatchErrors []string
 
 	for _, entry := range entries {
-		url := fmt.Sprintf("http://%s:%d%s", entry.IpAddress, entry.Port, endpoint)
+		url := fmt.Sprintf("https://%s:%d%s", entry.IpAddress, entry.Port, endpoint)
 		err := cd.dispatchConfigUtil(ctx, url, config)
 
 		if err != nil {

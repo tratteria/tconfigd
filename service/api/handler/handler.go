@@ -3,7 +3,9 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
+	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/tratteria/tconfigd/api/pkg/service"
 
 	"go.uber.org/zap"
@@ -22,24 +24,38 @@ func NewHandlers(service *service.Service, logger *zap.Logger) *Handlers {
 }
 
 type registrationRequest struct {
-	IpAddress   string `json:"ipAddress"`
-	Port        int    `json:"port"`
-	ServiceName string `json:"serviceName"`
-	NameSpace   string `json:"namespace"`
+	IpAddress string `json:"ipAddress"`
+	Port      int    `json:"port"`
+	NameSpace string `json:"namespace"`
 }
 
 type heartBeatRequest struct {
 	IpAddress      string `json:"ipAddress"`
 	Port           int    `json:"port"`
-	ServiceName    string `json:"serviceName"`
 	NameSpace      string `json:"namespace"`
 	RulesVersionID string `json:"rulesVersionId"`
 }
 
 func (h *Handlers) RegistrationHandler(w http.ResponseWriter, r *http.Request) {
+	if r.TLS == nil || len(r.TLS.PeerCertificates) == 0 {
+		http.Error(w, "No client certificate provided", http.StatusUnauthorized)
+
+		return
+	}
+
+	spiffeID, err := spiffeid.FromURI(r.TLS.PeerCertificates[0].URIs[0])
+	if err != nil {
+		h.Logger.Error("Failed to parse SPIFFE ID", zap.Error(err))
+		http.Error(w, "Invalid SPIFFE ID", http.StatusBadRequest)
+
+		return
+	}
+
+	serviceName := strings.TrimPrefix(spiffeID.Path(), "/")
+
 	var registrationRequest registrationRequest
 
-	err := json.NewDecoder(r.Body).Decode(&registrationRequest)
+	err = json.NewDecoder(r.Body).Decode(&registrationRequest)
 	if err != nil {
 		h.Logger.Error("Invalid registration request.", zap.Error(err))
 		http.Error(w, "Invalid request", http.StatusBadRequest)
@@ -47,9 +63,9 @@ func (h *Handlers) RegistrationHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.Logger.Info("Received a registration request.", zap.String("service", registrationRequest.ServiceName))
+	h.Logger.Info("Received a registration request.", zap.String("service", serviceName))
 
-	registrationResponse := h.Service.RegisterAgent(registrationRequest.IpAddress, registrationRequest.Port, registrationRequest.ServiceName, registrationRequest.NameSpace)
+	registrationResponse := h.Service.RegisterAgent(registrationRequest.IpAddress, registrationRequest.Port, serviceName, registrationRequest.NameSpace)
 
 	// TODO: return rules belonging to this service
 
@@ -65,9 +81,25 @@ func (h *Handlers) RegistrationHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) HeartBeatHandler(w http.ResponseWriter, r *http.Request) {
+	if r.TLS == nil || len(r.TLS.PeerCertificates) == 0 {
+		http.Error(w, "No client certificate provided", http.StatusUnauthorized)
+
+		return
+	}
+
+	spiffeID, err := spiffeid.FromURI(r.TLS.PeerCertificates[0].URIs[0])
+	if err != nil {
+		h.Logger.Error("Failed to parse SPIFFE ID", zap.Error(err))
+		http.Error(w, "Invalid SPIFFE ID", http.StatusBadRequest)
+
+		return
+	}
+
+	serviceName := strings.TrimPrefix(spiffeID.Path(), "/")
+
 	var heartBeatRequest heartBeatRequest
 
-	err := json.NewDecoder(r.Body).Decode(&heartBeatRequest)
+	err = json.NewDecoder(r.Body).Decode(&heartBeatRequest)
 	if err != nil {
 		h.Logger.Error("Invalid heartbeat request.", zap.Error(err))
 		http.Error(w, "Invalid request", http.StatusBadRequest)
@@ -75,9 +107,9 @@ func (h *Handlers) HeartBeatHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.Logger.Info("Received a heartbeat.", zap.String("service", heartBeatRequest.ServiceName))
+	h.Logger.Info("Received a heartbeat request.", zap.String("service", serviceName))
 
-	h.Service.RegisterHeartBeat(heartBeatRequest.IpAddress, heartBeatRequest.Port, heartBeatRequest.ServiceName, heartBeatRequest.NameSpace)
+	h.Service.RegisterHeartBeat(heartBeatRequest.IpAddress, heartBeatRequest.Port, serviceName, heartBeatRequest.NameSpace)
 
 	// TODO: if an agent is heartbeating with an old rule version id, notify it to fetch the latest rules
 
