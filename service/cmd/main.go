@@ -4,12 +4,15 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
+	"github.com/spiffe/go-spiffe/v2/spiffeid"
+	"github.com/spiffe/go-spiffe/v2/workloadapi"
 	"github.com/tratteria/tconfigd/api"
+	"github.com/tratteria/tconfigd/spiffe"
 	"github.com/tratteria/tconfigd/config"
 	"github.com/tratteria/tconfigd/configdispatcher"
 	"github.com/tratteria/tconfigd/dataplaneregistry"
@@ -17,6 +20,8 @@ import (
 	"github.com/tratteria/tconfigd/webhook"
 	"go.uber.org/zap"
 )
+
+const X509_SOURCE_TIMEOUT = 15 * time.Second
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -41,21 +46,34 @@ func main() {
 
 	configPath := os.Args[1]
 
-	appConfig, err := config.GetAppConfig(configPath)
+	config, err := config.GetConfig(configPath)
 	if err != nil {
 		logger.Fatal("Error reading configuration.", zap.Error(err))
 	}
 
-	httpClient := &http.Client{}
+	x509SrcCtx, cancel := context.WithTimeout(context.Background(), X509_SOURCE_TIMEOUT)
+	defer cancel()
+
+	x509Source, err := workloadapi.NewX509Source(x509SrcCtx, workloadapi.WithClientOptions(workloadapi.WithAddr(config.SpiffeEndpointSocket)))
+	if err != nil {
+		logger.Fatal("Failed to create X.509 source", zap.Error(err))
+	}
+
+	defer x509Source.Close()
+
+	tconfigdSpiffeId, err := spiffe.FetchSpiffeIdFromX509(x509Source)
+	if err != nil {
+		logger.Fatal("Error getting tconfigd spiffe id.", zap.Error(err))
+	}
+
 	agentsManager := dataplaneregistry.NewRegistry()
-	configdispatcher := configdispatcher.NewConfigDispatcher(agentsManager, httpClient)
+	configdispatcher := configdispatcher.NewConfigDispatcher(agentsManager, x509Source)
 
 	go func() {
-		logger.Info("Starting API server...")
-
 		apiServer := &api.API{
 			DataPlaneRegistryManager: agentsManager,
-			HttpClient:               httpClient,
+			X509Source:               x509Source,
+			TratteriaSpiffeId:        spiffeid.ID(config.TratteriaSpiffeId),
 			Logger:                   logger,
 		}
 
@@ -65,13 +83,13 @@ func main() {
 	}()
 
 	go func() {
-		logger.Info("Starting Webhook server...")
-
 		webhook := &webhook.Webhook{
-			EnableTratInterception: bool(appConfig.EnableTratInterception),
-			AgentApiPort:           int(appConfig.AgentApiPort),
-			AgentInterceptorPort:   int(appConfig.AgentInterceptorPort),
-			SpiffeEndpointSocket:   appConfig.SpiffeEndpointSocket,
+			EnableTratInterception: bool(config.EnableTratInterception),
+			AgentHttpsApiPort:      int(config.AgentHttpsApiPort),
+			AgentHttpApiPort:       int(config.AgentHttpApiPort),
+			AgentInterceptorPort:   int(config.AgentInterceptorPort),
+			SpiffeEndpointSocket:   config.SpiffeEndpointSocket,
+			TconfigdSpiffeId:       tconfigdSpiffeId,
 			Logger:                 logger,
 		}
 
@@ -94,7 +112,7 @@ func main() {
 
 	<-ctx.Done()
 
-	logger.Info("Shutting down servers and controllers...")
+	logger.Info("Shutting down tconfigd...")
 }
 
 func setupSignalHandler(cancel context.CancelFunc) {

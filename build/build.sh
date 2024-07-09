@@ -1,0 +1,1 @@
+docker build -t tconfigd:latest -f ../service/Dockerfile ../service/

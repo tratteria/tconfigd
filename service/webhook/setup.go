@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"go.uber.org/zap"
 
 	"github.com/tratteria/tconfigd/webhook/handler"
@@ -14,14 +15,16 @@ import (
 
 type Webhook struct {
 	EnableTratInterception bool
-	AgentApiPort           int
+	AgentHttpsApiPort      int
+	AgentHttpApiPort       int
 	AgentInterceptorPort   int
 	SpiffeEndpointSocket   string
+	TconfigdSpiffeId       spiffeid.ID
 	Logger                 *zap.Logger
 }
 
 func (wh *Webhook) Run() error {
-	handler := handler.NewHandlers(wh.EnableTratInterception, wh.AgentApiPort, wh.AgentInterceptorPort, wh.Logger)
+	handler := handler.NewHandlers(wh.EnableTratInterception, wh.AgentHttpsApiPort, wh.AgentHttpApiPort, wh.AgentInterceptorPort, wh.SpiffeEndpointSocket, wh.TconfigdSpiffeId, wh.Logger)
 	router := mux.NewRouter()
 
 	initializeRoutes(router, handler)
@@ -39,7 +42,7 @@ func (wh *Webhook) Run() error {
 		return fmt.Errorf("error setting up TLS creds: %w", err)
 	}
 
-	wh.Logger.Info("Starting webhook server with TLS on port 443")
+	wh.Logger.Info("Starting webhook server...", zap.Int("port", 443))
 
 	if err := srv.ListenAndServeTLS(tlscreds.CertPath, tlscreds.KeyPath); err != nil && err != http.ErrServerClosed {
 		wh.Logger.Error("Failed to start the webhook server", zap.Error(err))

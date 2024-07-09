@@ -71,21 +71,22 @@ func (s *SPIFFEIDFromString) UnmarshalYAML(unmarshal func(interface{}) error) er
 	return nil
 }
 
-type AppConfig struct {
+type Config struct {
 	EnableTratInterception BoolFromString     `yaml:"enableTratInterception"`
-	AgentApiPort           IntFromString      `yaml:"agentApiPort"`
+	AgentHttpsApiPort      IntFromString      `yaml:"agentHttpsApiPort"`
+	AgentHttpApiPort       IntFromString      `yaml:"agentHttpApiPort"`
 	AgentInterceptorPort   IntFromString      `yaml:"agentInterceptorPort"`
 	SpiffeEndpointSocket   string             `yaml:"spiffeEndpointSocket"`
-	TconfigdSpiffeId       SPIFFEIDFromString `yaml:"tconfigdSpiffeId"`
+	TratteriaSpiffeId      SPIFFEIDFromString `yaml:"tratteriaSpiffeId"`
 }
 
-func GetAppConfig(configPath string) (*AppConfig, error) {
+func GetConfig(configPath string) (*Config, error) {
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
-	var cfg AppConfig
+	var cfg Config
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal YAML configuration: %w", err)
 	}

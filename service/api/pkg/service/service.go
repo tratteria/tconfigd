@@ -3,28 +3,34 @@ package service
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/lestrrat-go/jwx/jwk"
+	"github.com/spiffe/go-spiffe/v2/spiffeid"
+	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
+	"github.com/spiffe/go-spiffe/v2/workloadapi"
 	"github.com/tratteria/tconfigd/common"
 	"github.com/tratteria/tconfigd/dataplaneregistry"
 	"go.uber.org/zap"
 )
 
 const (
-	TRATTERIA_JWKS_ENDPOINT = "/.well-known/jwks.json"
+	TRATTERIA_JWKS_ENDPOINT = ".well-known/jwks.json"
 )
 
 type Service struct {
 	dataPlaneRegistryManager dataplaneregistry.Manager
-	httpClient               *http.Client
+	x509Source               *workloadapi.X509Source
+	tratteriaSpiffeId        spiffeid.ID
 	logger                   *zap.Logger
 }
 
-func NewService(dataPlaneRegistryManager dataplaneregistry.Manager, httpClient *http.Client, logger *zap.Logger) *Service {
+func NewService(dataPlaneRegistryManager dataplaneregistry.Manager, x509Source *workloadapi.X509Source, tratteriaSpiffeId spiffeid.ID, logger *zap.Logger) *Service {
 	return &Service{
 		dataPlaneRegistryManager: dataPlaneRegistryManager,
-		httpClient:               httpClient,
+		x509Source:               x509Source,
+		tratteriaSpiffeId:        tratteriaSpiffeId,
 		logger:                   logger,
 	}
 }
@@ -57,12 +63,41 @@ func (s *Service) CollectJwks(ctx context.Context, namespace string) (jwk.Set, e
 
 	allKeys := jwk.NewSet()
 
-	for _, instance := range tratteriaInstances {
-		url := fmt.Sprintf("http://%s:%d/%s", instance.IpAddress, instance.Port, TRATTERIA_JWKS_ENDPOINT)
+	tlsConfig := tlsconfig.MTLSClientConfig(s.x509Source, s.x509Source, tlsconfig.AuthorizeID(s.tratteriaSpiffeId))
 
-		set, err := jwk.Fetch(ctx, url)
+	client := http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: tlsConfig,
+		},
+	}
+
+	for _, instance := range tratteriaInstances {
+		url := fmt.Sprintf("https://%s/%s", instance.IpAddress, TRATTERIA_JWKS_ENDPOINT)
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+		if err != nil {
+			return nil, fmt.Errorf("error creating request for URL %s: %w", url, err)
+		}
+
+		resp, err := client.Do(req)
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch JWKS from URL %s: %w", url, err)
+		}
+
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("received non-ok status code %d from URL %s", resp.StatusCode, url)
+		}
+
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("error reading response body from URL %s: %w", url, err)
+		}
+
+		set, err := jwk.Parse(body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse JWKS from URL %s: %w", url, err)
 		}
 
 		for iter := set.Iterate(ctx); iter.Next(ctx); {
