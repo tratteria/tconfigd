@@ -64,6 +64,7 @@ func (cd *ConfigDispatcher) dispatchConfigUtil(ctx context.Context, url string, 
 		if err != nil {
 			return fmt.Errorf("error reading response body: %w", err)
 		}
+
 		return fmt.Errorf("received non-ok status: %d, response: %s", resp.StatusCode, string(bodyBytes))
 	}
 
