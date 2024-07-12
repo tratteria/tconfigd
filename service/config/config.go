@@ -72,12 +72,12 @@ func (s *SPIFFEIDFromString) UnmarshalYAML(unmarshal func(interface{}) error) er
 }
 
 type Config struct {
+	SpireAgentHostDir      string             `yaml:"spireAgentHostDir"`
+	TratteriaSpiffeId      SPIFFEIDFromString `yaml:"tratteriaSpiffeId"`
 	EnableTratInterception BoolFromString     `yaml:"enableTratInterception"`
 	AgentHttpsApiPort      IntFromString      `yaml:"agentHttpsApiPort"`
 	AgentHttpApiPort       IntFromString      `yaml:"agentHttpApiPort"`
 	AgentInterceptorPort   IntFromString      `yaml:"agentInterceptorPort"`
-	SpiffeEndpointSocket   string             `yaml:"spiffeEndpointSocket"`
-	TratteriaSpiffeId      SPIFFEIDFromString `yaml:"tratteriaSpiffeId"`
 }
 
 func GetConfig(configPath string) (*Config, error) {

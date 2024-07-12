@@ -12,13 +12,6 @@ success() {
     printf "\e[32m%s\n\e[0m" "$1"
 }
 
-usage() {
-    echo "Usage: $0 [OPTIONS]"
-    echo "Options:"
-    echo "  --no-spire    Skips the installation of SPIRE."
-    echo "  -h, --help    Displays this help message."
-}
-
 apply_k8s_config() {
     kubectl apply -f $1 || { error "Failed to apply configuration for $1"; exit 1; }
 }
@@ -32,27 +25,9 @@ validate_resource() {
     fi
 }
 
-install_spire=true
-
-while [[ "$#" -gt 0 ]]; do
-    case $1 in
-        --no-spire) install_spire=false ;;
-        -h|--help) usage; exit 0 ;;
-        *) echo "Unknown option: $1"; usage; exit 1 ;;
-    esac
-    shift
-done
-
 if kubectl get namespace tratteria-system > /dev/null 2>&1; then
     error "tconfigd is already installed. Please uninstall the existing installation before proceeding."
     exit 1
-fi
-
-if [ "$install_spire" = true ]; then
-    cd resources/spire
-    chmod +x install.sh
-    ./install.sh
-    cd ../../
 fi
 
 info "Installing tconfigd..."

@@ -11,7 +11,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-func CreatePodPatch(pod *corev1.Pod, injectInitContainer bool, agentHttpsApiPort int, agentHttpApiPort int, agentInterceptorPort int, spiffeEndpointSocket string, tconfigdSpiffeId spiffeid.ID) ([]jsonpatch.JsonPatchOperation, error) {
+func CreatePodPatch(pod *corev1.Pod, injectInitContainer bool, agentHttpsApiPort int, agentHttpApiPort int, agentInterceptorPort int, spireAgentHostDir string, tconfigdSpiffeId spiffeid.ID) ([]jsonpatch.JsonPatchOperation, error) {
 	var patch []jsonpatch.JsonPatchOperation
 
 	shouldInject, ok := pod.Annotations["tratteria/inject-sidecar"]
@@ -27,6 +27,32 @@ func CreatePodPatch(pod *corev1.Pod, injectInitContainer bool, agentHttpsApiPort
 
 	if _, err := strconv.Atoi(servicePort); err != nil {
 		return nil, fmt.Errorf("service-port must be a valid number")
+	}
+
+	volumeName := "spire-agent-socket"
+	foundVolume := false
+
+	for _, vol := range pod.Spec.Volumes {
+		if vol.HostPath != nil && vol.HostPath.Path == spireAgentHostDir {
+			volumeName = vol.Name
+			foundVolume = true
+			break
+		}
+	}
+
+	if !foundVolume {
+		patch = append(patch, jsonpatch.JsonPatchOperation{
+			Operation: "add",
+			Path:      "/spec/volumes/-",
+			Value: corev1.Volume{
+				Name: volumeName,
+				VolumeSource: corev1.VolumeSource{
+					HostPath: &corev1.HostPathVolumeSource{
+						Path: spireAgentHostDir,
+					},
+				},
+			},
+		})
 	}
 
 	if injectInitContainer {
@@ -80,7 +106,7 @@ func CreatePodPatch(pod *corev1.Pod, injectInitContainer bool, agentHttpsApiPort
 			},
 			{
 				Name:  "SPIFFE_ENDPOINT_SOCKET",
-				Value: spiffeEndpointSocket,
+				Value: "unix:///run/spire/sockets/agent.sock",
 			},
 			{
 				Name:  "AGENT_HTTPS_API_PORT",
@@ -111,7 +137,7 @@ func CreatePodPatch(pod *corev1.Pod, injectInitContainer bool, agentHttpsApiPort
 		ImagePullPolicy: corev1.PullNever,
 		VolumeMounts: []corev1.VolumeMount{
 			{
-				Name:      "spire-agent-socket",
+				Name:      volumeName,
 				MountPath: "/run/spire/sockets",
 				ReadOnly:  true,
 			},
