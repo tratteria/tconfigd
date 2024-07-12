@@ -36,6 +36,7 @@ func CreatePodPatch(pod *corev1.Pod, injectInitContainer bool, agentHttpsApiPort
 		if vol.HostPath != nil && vol.HostPath.Path == spireAgentHostDir {
 			volumeName = vol.Name
 			foundVolume = true
+
 			break
 		}
 	}

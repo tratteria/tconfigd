@@ -14,12 +14,12 @@ import (
 )
 
 const (
-	CertsDirPath     = "/etc/webhook/certs"
-	CertPath         = "/etc/webhook/certs/tls.crt"
-	KeyPath          = "/etc/webhook/certs/tls.key"
-	certsFileMode    = os.FileMode(0o644)
-	keyFileMode      = os.FileMode(0o600)
-	certsDirMode     = os.FileMode(0o755)
+	CertsDirPath                   = "/etc/webhook/certs"
+	CertPath                       = "/etc/webhook/certs/tls.crt"
+	KeyPath                        = "/etc/webhook/certs/tls.key"
+	certsFileMode                  = os.FileMode(0o644)
+	keyFileMode                    = os.FileMode(0o600)
+	certsDirMode                   = os.FileMode(0o755)
 	SpiffeWorkloadNewClientTimeout = 15 * time.Second
 )
 
