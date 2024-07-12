@@ -21,6 +21,9 @@ spec:
           name: tconfigd
           args: ["/etc/tconfigd/config/config.yaml"]
           imagePullPolicy: Never
+          env:
+            - name: SPIFFE_ENDPOINT_SOCKET
+              value: unix:///run/spire/sockets/agent.sock
           ports:
             - containerPort: 8443
               protocol: TCP
@@ -40,5 +43,5 @@ spec:
             name: config
         - name: spire-agent-socket
           hostPath:
-            path: /run/spire/sockets
+            path: /run/spire/sockets # Host directory where the SPIRE agent's socket resides; update this if different in your environment
             type: Directory

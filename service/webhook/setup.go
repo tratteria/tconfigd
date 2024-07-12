@@ -18,13 +18,13 @@ type Webhook struct {
 	AgentHttpsApiPort      int
 	AgentHttpApiPort       int
 	AgentInterceptorPort   int
-	SpiffeEndpointSocket   string
+	SpireAgentHostDir      string
 	TconfigdSpiffeId       spiffeid.ID
 	Logger                 *zap.Logger
 }
 
 func (wh *Webhook) Run() error {
-	handler := handler.NewHandlers(wh.EnableTratInterception, wh.AgentHttpsApiPort, wh.AgentHttpApiPort, wh.AgentInterceptorPort, wh.SpiffeEndpointSocket, wh.TconfigdSpiffeId, wh.Logger)
+	handler := handler.NewHandlers(wh.EnableTratInterception, wh.AgentHttpsApiPort, wh.AgentHttpApiPort, wh.AgentInterceptorPort, wh.SpireAgentHostDir, wh.TconfigdSpiffeId, wh.Logger)
 	router := mux.NewRouter()
 
 	initializeRoutes(router, handler)
@@ -36,7 +36,7 @@ func (wh *Webhook) Run() error {
 		ReadTimeout:  15 * time.Second,
 	}
 
-	if err := tlscreds.SetupTLSCertAndKeyFromSPIRE(wh.SpiffeEndpointSocket); err != nil {
+	if err := tlscreds.SetupTLSCertAndKeyFromSPIRE(); err != nil {
 		wh.Logger.Error("Error setting up TLS creds", zap.Error(err))
 
 		return fmt.Errorf("error setting up TLS creds: %w", err)

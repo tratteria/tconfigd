@@ -19,18 +19,18 @@ type Handlers struct {
 	agentHttpsApiPort      int
 	agentHttpApiPort       int
 	agentInterceptorPort   int
-	spiffeEndpointSocket   string
+	spireAgentHostDir      string
 	tconfigdSpiffeId       spiffeid.ID
 	logger                 *zap.Logger
 }
 
-func NewHandlers(enableTratInterception bool, agentHttpsApiPort int, agentHttpApiPort int, agentInterceptorPort int, spiffeEndpointSocket string, tconfigdSpiffeId spiffeid.ID, logger *zap.Logger) *Handlers {
+func NewHandlers(enableTratInterception bool, agentHttpsApiPort int, agentHttpApiPort int, agentInterceptorPort int, spireAgentHostDir string, tconfigdSpiffeId spiffeid.ID, logger *zap.Logger) *Handlers {
 	return &Handlers{
 		enableTratInterception: enableTratInterception,
 		agentHttpsApiPort:      agentHttpsApiPort,
 		agentHttpApiPort:       agentHttpApiPort,
 		agentInterceptorPort:   agentInterceptorPort,
-		spiffeEndpointSocket:   spiffeEndpointSocket,
+		spireAgentHostDir:      spireAgentHostDir,
 		tconfigdSpiffeId:       tconfigdSpiffeId,
 		logger:                 logger,
 	}
@@ -67,7 +67,7 @@ func (h *Handlers) InjectTratteriaAgent(w http.ResponseWriter, r *http.Request) 
 			Message: err.Error(),
 		}
 	} else {
-		patchOps, err := util.CreatePodPatch(&pod, h.enableTratInterception, h.agentHttpsApiPort, h.agentHttpApiPort, h.agentInterceptorPort, h.spiffeEndpointSocket, h.tconfigdSpiffeId)
+		patchOps, err := util.CreatePodPatch(&pod, h.enableTratInterception, h.agentHttpsApiPort, h.agentHttpApiPort, h.agentInterceptorPort, h.spireAgentHostDir, h.tconfigdSpiffeId)
 
 		if err != nil {
 			h.logger.Error("Could not create patch for pod", zap.Error(err))

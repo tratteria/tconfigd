@@ -54,7 +54,7 @@ func main() {
 	x509SrcCtx, cancel := context.WithTimeout(context.Background(), X509_SOURCE_TIMEOUT)
 	defer cancel()
 
-	x509Source, err := workloadapi.NewX509Source(x509SrcCtx, workloadapi.WithClientOptions(workloadapi.WithAddr(config.SpiffeEndpointSocket)))
+	x509Source, err := workloadapi.NewX509Source(x509SrcCtx)
 	if err != nil {
 		logger.Fatal("Failed to create X.509 source", zap.Error(err))
 	}
@@ -88,7 +88,7 @@ func main() {
 			AgentHttpsApiPort:      int(config.AgentHttpsApiPort),
 			AgentHttpApiPort:       int(config.AgentHttpApiPort),
 			AgentInterceptorPort:   int(config.AgentInterceptorPort),
-			SpiffeEndpointSocket:   config.SpiffeEndpointSocket,
+			SpireAgentHostDir:      config.SpireAgentHostDir,
 			TconfigdSpiffeId:       tconfigdSpiffeId,
 			Logger:                 logger,
 		}
