@@ -16,7 +16,7 @@ import (
 	"github.com/tratteria/tconfigd/configdispatcher"
 	"github.com/tratteria/tconfigd/dataplaneregistry"
 	"github.com/tratteria/tconfigd/spiffe"
-	"github.com/tratteria/tconfigd/tratcontroller"
+	"github.com/tratteria/tconfigd/tratteriacontroller"
 	"github.com/tratteria/tconfigd/webhook"
 	"go.uber.org/zap"
 )
@@ -66,12 +66,21 @@ func main() {
 		logger.Fatal("Error getting tconfigd spiffe id.", zap.Error(err))
 	}
 
-	agentsManager := dataplaneregistry.NewRegistry()
-	configdispatcher := configdispatcher.NewConfigDispatcher(agentsManager, x509Source)
+	dataPlaneRegistryManager := dataplaneregistry.NewRegistry()
+	configdispatcher := configdispatcher.NewConfigDispatcher(dataPlaneRegistryManager, x509Source)
+
+	tratteriaController := &tratteriacontroller.TratteriaController{
+		ConfigDispatcher: configdispatcher,
+	}
+
+	if err := tratteriaController.Run(); err != nil {
+		logger.Fatal("Failed to start TraT Controller server.", zap.Error(err))
+	}
 
 	go func() {
 		apiServer := &api.API{
-			DataPlaneRegistryManager: agentsManager,
+			DataPlaneRegistryManager: dataPlaneRegistryManager,
+			TratteriaController:      tratteriaController,
 			X509Source:               x509Source,
 			TratteriaSpiffeId:        spiffeid.ID(config.TratteriaSpiffeId),
 			Logger:                   logger,
@@ -95,18 +104,6 @@ func main() {
 
 		if err := webhook.Run(); err != nil {
 			logger.Fatal("Failed to start Webhook server.", zap.Error(err))
-		}
-	}()
-
-	go func() {
-		logger.Info("Starting TraT Controller...")
-
-		tratController := &tratcontroller.TraTController{
-			ConfigDispatcher: configdispatcher,
-		}
-
-		if err := tratController.Run(); err != nil {
-			logger.Fatal("Failed to start TraT Controller server.", zap.Error(err))
 		}
 	}()
 

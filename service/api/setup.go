@@ -14,19 +14,21 @@ import (
 	"github.com/tratteria/tconfigd/api/handler"
 	"github.com/tratteria/tconfigd/api/pkg/service"
 	"github.com/tratteria/tconfigd/dataplaneregistry"
+	"github.com/tratteria/tconfigd/tratteriacontroller"
 )
 
 const API_PORT = 8443
 
 type API struct {
 	DataPlaneRegistryManager dataplaneregistry.Manager
+	TratteriaController      *tratteriacontroller.TratteriaController
 	X509Source               *workloadapi.X509Source
 	TratteriaSpiffeId        spiffeid.ID
 	Logger                   *zap.Logger
 }
 
 func (api *API) Run() error {
-	service := service.NewService(api.DataPlaneRegistryManager, api.X509Source, api.TratteriaSpiffeId, api.Logger)
+	service := service.NewService(api.DataPlaneRegistryManager, api.TratteriaController, api.X509Source, api.TratteriaSpiffeId, api.Logger)
 	handler := handler.NewHandlers(service, api.Logger)
 	router := mux.NewRouter()
 
