@@ -65,9 +65,13 @@ func (h *Handlers) RegistrationHandler(w http.ResponseWriter, r *http.Request) {
 
 	h.Logger.Info("Received a registration request.", zap.String("service", serviceName))
 
-	registrationResponse := h.Service.RegisterAgent(registrationRequest.IpAddress, registrationRequest.Port, serviceName, registrationRequest.NameSpace)
+	registrationResponse, err := h.Service.RegisterAgent(registrationRequest.IpAddress, registrationRequest.Port, serviceName, registrationRequest.NameSpace)
+	if err != nil {
+		h.Logger.Error("Failed to register service.", zap.Error(err))
+		http.Error(w, "Failed to register service", http.StatusInternalServerError)
 
-	// TODO: return rules belonging to this service
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)

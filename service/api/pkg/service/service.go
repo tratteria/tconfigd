@@ -12,6 +12,8 @@ import (
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 	"github.com/tratteria/tconfigd/common"
 	"github.com/tratteria/tconfigd/dataplaneregistry"
+	"github.com/tratteria/tconfigd/tratteriacontroller"
+	tratteria1alpha1 "github.com/tratteria/tconfigd/tratteriacontroller/pkg/apis/tratteria/v1alpha1"
 	"go.uber.org/zap"
 )
 
@@ -21,14 +23,16 @@ const (
 
 type Service struct {
 	dataPlaneRegistryManager dataplaneregistry.Manager
+	tratteriaController      *tratteriacontroller.TratteriaController
 	x509Source               *workloadapi.X509Source
 	tratteriaSpiffeId        spiffeid.ID
 	logger                   *zap.Logger
 }
 
-func NewService(dataPlaneRegistryManager dataplaneregistry.Manager, x509Source *workloadapi.X509Source, tratteriaSpiffeId spiffeid.ID, logger *zap.Logger) *Service {
+func NewService(dataPlaneRegistryManager dataplaneregistry.Manager, tratteriaController *tratteriacontroller.TratteriaController, x509Source *workloadapi.X509Source, tratteriaSpiffeId spiffeid.ID, logger *zap.Logger) *Service {
 	return &Service{
 		dataPlaneRegistryManager: dataPlaneRegistryManager,
+		tratteriaController:      tratteriaController,
 		x509Source:               x509Source,
 		tratteriaSpiffeId:        tratteriaSpiffeId,
 		logger:                   logger,
@@ -36,16 +40,37 @@ func NewService(dataPlaneRegistryManager dataplaneregistry.Manager, x509Source *
 }
 
 type registrationResponse struct {
-	HeartBeatIntervalMinutes int `json:"heartBeatIntervalMinutes"`
+	HeartBeatIntervalMinutes int                                 `json:"heartBeatIntervalMinutes"`
+	VerificationRules        *tratteria1alpha1.VerificationRules `json:"verificationRules,omitempty"`
+	GenerationRules          *tratteria1alpha1.GenerationRules   `json:"generationRules,omitempty"`
 }
 
-func (s *Service) RegisterAgent(ipaddress string, port int, serviceName string, namespace string) *registrationResponse {
-	// TODO: return rules belonging to the service
-	s.dataPlaneRegistryManager.Register(ipaddress, port, serviceName, namespace)
-
-	return &registrationResponse{
+func (s *Service) RegisterAgent(ipaddress string, port int, serviceName string, namespace string) (*registrationResponse, error) {
+	response := &registrationResponse{
 		HeartBeatIntervalMinutes: common.DATA_PLANE_HEARTBEAT_INTERVAL_MINUTES,
 	}
+
+	if serviceName == common.TRATTERIA_SERVICE_NAME {
+		generationRules, err := s.tratteriaController.Controller.GetActiveGenerationRules(namespace)
+		if err != nil {
+			return nil, err
+		}
+
+		response.GenerationRules = generationRules
+
+		return response, nil
+	}
+
+	verificationRules, err := s.tratteriaController.Controller.GetActiveVerificationRules(serviceName, namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	response.VerificationRules = verificationRules
+
+	s.dataPlaneRegistryManager.Register(ipaddress, port, serviceName, namespace)
+
+	return response, nil
 }
 
 func (s *Service) RegisterHeartBeat(ipaddress string, port int, serviceName string, namespace string) {

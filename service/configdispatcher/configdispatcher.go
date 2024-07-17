@@ -11,7 +11,7 @@ import (
 
 	"github.com/tratteria/tconfigd/common"
 	"github.com/tratteria/tconfigd/dataplaneregistry"
-	"github.com/tratteria/tconfigd/tratcontroller/pkg/apis/tratteria/v1alpha1"
+	"github.com/tratteria/tconfigd/tratteriacontroller/pkg/apis/tratteria/v1alpha1"
 
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"

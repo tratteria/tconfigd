@@ -1,8 +1,8 @@
 run:
   skip-dirs:
-    - ^tratcontroller/.*$
-    - ^tratcontroller$
-    - tratcontroller
+    - ^tratteriacontroller/.*$
+    - ^tratteriacontroller$
+    - tratteriacontroller
 
 linters:
   disable-all: true
