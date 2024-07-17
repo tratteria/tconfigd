@@ -8,11 +8,11 @@ Ensure your Kubernetes cluster is active and accessible.
 
 ### SPIRE:
 
-tconfigd requires [SPIRE](https://github.com/spiffe/spire) for its operation. Ensure SPIRE is installed before proceeding to install tconfigd.
+tconfigd requires [SPIRE](https://github.com/spiffe/spire) for its operation. Ensure SPIRE is running in your Kubernetes cluster before proceeding to install tconfigd.
 
 #### 1. Setup
 
-tconfigd utilizes [k8sbundle plugin](https://github.com/spiffe/spire/blob/main/doc/plugin_server_notifier_k8sbundle.md) to push CA certificates to its Kubernetes webhooks. Add the following configuration to your SPIRE server:
+tconfigd utilizes SPIRE's built-in [k8sbundle plugin](https://github.com/spiffe/spire/blob/main/doc/plugin_server_notifier_k8sbundle.md) to push CA certificates to its Kubernetes webhooks. Add the following configuration to your SPIRE server:
 
 ```
 Notifier "k8sbundle" {
