@@ -55,22 +55,22 @@ type TraTList struct {
 	Items []TraT `json:"items"`
 }
 
-type VerificationEndpointRule struct {
+type VerificationTraTRule struct {
 	Endpoint   string     `json:"endpoint"`
 	Method     string     `json:"method"`
 	Purp       string     `json:"purp"`
 	AzdMapping AzdMapping `json:"azdmapping,omitempty"`
 }
 
-type GenerationEndpointRule struct {
+type GenerationTraTRule struct {
 	Endpoint   string     `json:"endpoint"`
 	Method     string     `json:"method"`
 	Purp       string     `json:"purp"`
 	AzdMapping AzdMapping `json:"azdmapping,omitempty"`
 }
 
-func (traT *TraT) GetVerificationEndpointRules() (map[string]*VerificationEndpointRule, error) {
-	verificationRules := make(map[string]*VerificationEndpointRule)
+func (traT *TraT) GetVerificationTraTRules() (map[string]*VerificationTraTRule, error) {
+	verificationRules := make(map[string]*VerificationTraTRule)
 
 	// TODO: do basic check and return err if failed
 
@@ -86,7 +86,7 @@ func (traT *TraT) GetVerificationEndpointRules() (map[string]*VerificationEndpoi
 			azdMapping = serviceSpec.AzdMapping
 		}
 
-		verificationRules[serviceSpec.Name] = &VerificationEndpointRule{
+		verificationRules[serviceSpec.Name] = &VerificationTraTRule{
 			Endpoint:   endpoint,
 			Method:     traT.Spec.Method,
 			Purp:       traT.Spec.Purp,
@@ -102,10 +102,10 @@ func (traT *TraT) GetVerificationEndpointRules() (map[string]*VerificationEndpoi
 	return verificationRules, nil
 }
 
-func (traT *TraT) GetGenerationEndpointRule() (*GenerationEndpointRule, error) {
+func (traT *TraT) GetGenerationTraTRule() (*GenerationTraTRule, error) {
 	// TODO: do basic check and return err if failed
 
-	return &GenerationEndpointRule{
+	return &GenerationTraTRule{
 		Endpoint:   traT.Spec.Endpoint,
 		Method:     traT.Spec.Method,
 		Purp:       traT.Spec.Purp,
@@ -183,32 +183,32 @@ type TratteriaConfigList struct {
 	Items []TratteriaConfig `json:"items"`
 }
 
-type VerificationTokenRule struct {
+type VerificationTratteriaConfigRule struct {
 	Issuer   string `json:"issuer"`
 	Audience string `json:"audience"`
 }
 
-type GenerationTokenRule TratteriaConfigSpec
+type GenerationTratteriaConfigRule TratteriaConfigSpec
 
-func (tratteriaConfig *TratteriaConfig) GetVerificationTokenRule() (*VerificationTokenRule, error) {
-	return &VerificationTokenRule{
+func (tratteriaConfig *TratteriaConfig) GetVerificationTratteriaConfigRule() (*VerificationTratteriaConfigRule, error) {
+	return &VerificationTratteriaConfigRule{
 		Issuer:   tratteriaConfig.Spec.Token.Issuer,
 		Audience: tratteriaConfig.Spec.Token.Audience,
 	}, nil
 }
 
-func (tratteriaConfig *TratteriaConfig) GetGenerationTokenRule() (*GenerationTokenRule, error) {
-	generationTokenRule := GenerationTokenRule(tratteriaConfig.Spec)
-	
-	return &generationTokenRule, nil
+func (tratteriaConfig *TratteriaConfig) GetGenerationTratteriaConfigRule() (*GenerationTratteriaConfigRule, error) {
+	generationTratteriaConfigRule := GenerationTratteriaConfigRule(tratteriaConfig.Spec)
+
+	return &generationTratteriaConfigRule, nil
 }
 
 type VerificationRules struct {
-	VerificationTokenRule     *VerificationTokenRule      `json:"verificationTokenRule"`
-	VerificationEndpointRules []*VerificationEndpointRule `json:"verificationEndpointRules"`
+	VerificationTratteriaConfigRule *VerificationTratteriaConfigRule `json:"verificationTratteriaConfigRule"`
+	VerificationTraTRules           []*VerificationTraTRule          `json:"verificationTraTRules"`
 }
 
 type GenerationRules struct {
-	GenerationTokenRule     *GenerationTokenRule      `json:"generationTokenRule"`
-	GenerationEndpointRules []*GenerationEndpointRule `json:"generationEndpointRules"`
+	GenerationTratteriaConfigRule *GenerationTratteriaConfigRule `json:"generationTratteriaConfigRule"`
+	GenerationTraTRules           []*GenerationTraTRule          `json:"generationTraTRules"`
 }

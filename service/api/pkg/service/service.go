@@ -45,7 +45,7 @@ type registrationResponse struct {
 	GenerationRules          *tratteria1alpha1.GenerationRules   `json:"generationRules,omitempty"`
 }
 
-func (s *Service) RegisterAgent(ipaddress string, port int, serviceName string, namespace string) (*registrationResponse, error) {
+func (s *Service) RegisterService(ipaddress string, port int, serviceName string, namespace string) (*registrationResponse, error) {
 	response := &registrationResponse{
 		HeartBeatIntervalMinutes: common.DATA_PLANE_HEARTBEAT_INTERVAL_MINUTES,
 	}
@@ -57,16 +57,14 @@ func (s *Service) RegisterAgent(ipaddress string, port int, serviceName string, 
 		}
 
 		response.GenerationRules = generationRules
+	} else {
+		verificationRules, err := s.tratteriaController.Controller.GetActiveVerificationRules(serviceName, namespace)
+		if err != nil {
+			return nil, err
+		}
 
-		return response, nil
+		response.VerificationRules = verificationRules
 	}
-
-	verificationRules, err := s.tratteriaController.Controller.GetActiveVerificationRules(serviceName, namespace)
-	if err != nil {
-		return nil, err
-	}
-
-	response.VerificationRules = verificationRules
 
 	s.dataPlaneRegistryManager.Register(ipaddress, port, serviceName, namespace)
 

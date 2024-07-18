@@ -215,35 +215,35 @@ func (c *Controller) syncHandler(ctx context.Context, key string) error {
 }
 
 func (c *Controller) GetActiveVerificationRules(serviceName string, namespace string) (*tratteria1alpha1.VerificationRules, error) {
-	verificationTokenRule, err := c.getActiveVerificationTokenRule(namespace)
+	verificationTratteriaConfigRule, err := c.getActiveVerificationTratteriaConfigRule(namespace)
 	if err != nil {
 		return nil, err
 	}
 
-	verificationEndpointRules, err := c.getActiveVerificationEndpointRules(serviceName, namespace)
+	verificationTraTRules, err := c.getActiveVerificationTraTRules(serviceName, namespace)
 	if err != nil {
 		return nil, err
 	}
 
 	return &tratteria1alpha1.VerificationRules{
-		VerificationTokenRule:     verificationTokenRule,
-		VerificationEndpointRules: verificationEndpointRules,
+		VerificationTratteriaConfigRule: verificationTratteriaConfigRule,
+		VerificationTraTRules:           verificationTraTRules,
 	}, nil
 }
 
 func (c *Controller) GetActiveGenerationRules(namespace string) (*tratteria1alpha1.GenerationRules, error) {
-	generationTokenRule, err := c.getActiveGenerationTokenRule(namespace)
+	generationTratteriaConfigRule, err := c.getActiveGenerationTokenRule(namespace)
 	if err != nil {
 		return nil, err
 	}
 
-	generationEndpointRules, err := c.getActiveGenerationEndpointRules(namespace)
+	generationTraTRules, err := c.getActiveGenerationEndpointRules(namespace)
 	if err != nil {
 		return nil, err
 	}
 
 	return &tratteria1alpha1.GenerationRules{
-		GenerationTokenRule:     generationTokenRule,
-		GenerationEndpointRules: generationEndpointRules,
+		GenerationTratteriaConfigRule: generationTratteriaConfigRule,
+		GenerationTraTRules:           generationTraTRules,
 	}, nil
 }

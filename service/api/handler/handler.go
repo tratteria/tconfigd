@@ -65,7 +65,7 @@ func (h *Handlers) RegistrationHandler(w http.ResponseWriter, r *http.Request) {
 
 	h.Logger.Info("Received a registration request.", zap.String("service", serviceName))
 
-	registrationResponse, err := h.Service.RegisterAgent(registrationRequest.IpAddress, registrationRequest.Port, serviceName, registrationRequest.NameSpace)
+	registrationResponse, err := h.Service.RegisterService(registrationRequest.IpAddress, registrationRequest.Port, serviceName, registrationRequest.NameSpace)
 	if err != nil {
 		h.Logger.Error("Failed to register service.", zap.Error(err))
 		http.Error(w, "Failed to register service", http.StatusInternalServerError)
