@@ -35,7 +35,7 @@ func (c *Controller) handleTraT(ctx context.Context, key string) error {
 		return err
 	}
 
-	verificationEndpointRules, err := trat.GetVerificationEndpointRules()
+	verificationEndpointRules, err := trat.GetVerificationTraTRules()
 	if err != nil {
 		messagedErr := fmt.Errorf("error retrieving verification rules from %s trat: %w", name, err)
 
@@ -50,7 +50,7 @@ func (c *Controller) handleTraT(ctx context.Context, key string) error {
 
 	// TODO: Implement parallel dispatching of rules using goroutines
 	for service, serviceVerificationRule := range verificationEndpointRules {
-		err := c.configDispatcher.DispatchVerificationEndpointRule(ctx, service, namespace, serviceVerificationRule)
+		err := c.configDispatcher.DispatchVerificationTraTRule(ctx, service, namespace, serviceVerificationRule)
 		if err != nil {
 			messagedErr := fmt.Errorf("error dispatching %s trat verification rule to %s service: %w", name, service, err)
 
@@ -66,7 +66,7 @@ func (c *Controller) handleTraT(ctx context.Context, key string) error {
 
 	c.recorder.Event(trat, corev1.EventTypeNormal, string(VerificationApplicationStage)+" successful", string(VerificationApplicationStage)+" completed successfully")
 
-	generationEndpointRule, err := trat.GetGenerationEndpointRule()
+	generationEndpointRule, err := trat.GetGenerationTraTRule()
 	if err != nil {
 		messagedErr := fmt.Errorf("error retrieving generation rules from %s trat: %w", name, err)
 
@@ -79,7 +79,7 @@ func (c *Controller) handleTraT(ctx context.Context, key string) error {
 		return messagedErr
 	}
 
-	err = c.configDispatcher.DispatchGenerationEndpointRule(ctx, namespace, generationEndpointRule)
+	err = c.configDispatcher.DispatchGenerationTraTRule(ctx, namespace, generationEndpointRule)
 	if err != nil {
 		messagedErr := fmt.Errorf("error dispatching %s trat generation rule: %w", name, err)
 
@@ -132,7 +132,7 @@ func (c *Controller) updateSuccessTratStatus(ctx context.Context, trat *tratteri
 	return updateErr
 }
 
-func (c *Controller) getActiveVerificationEndpointRules(serviceName string, namespace string) ([]*tratteria1alpha1.VerificationEndpointRule, error) {
+func (c *Controller) getActiveVerificationTraTRules(serviceName string, namespace string) ([]*tratteria1alpha1.VerificationTraTRule, error) {
 	traTs, err := c.traTsLister.TraTs(namespace).List(labels.Everything())
 	if err != nil {
 		klog.Error("Failed to list TraTs in namespace:", namespace, err)
@@ -140,11 +140,11 @@ func (c *Controller) getActiveVerificationEndpointRules(serviceName string, name
 		return nil, err
 	}
 
-	var endpointVerificationRules []*tratteria1alpha1.VerificationEndpointRule
+	var endpointVerificationRules []*tratteria1alpha1.VerificationTraTRule
 
 	for _, trat := range traTs {
 		if trat.Status.Status == "DONE" {
-			endpointVerificationRule, err := trat.GetVerificationEndpointRules()
+			endpointVerificationRule, err := trat.GetVerificationTraTRules()
 			if err != nil {
 				return nil, err
 			}
@@ -157,7 +157,7 @@ func (c *Controller) getActiveVerificationEndpointRules(serviceName string, name
 	return endpointVerificationRules, nil
 }
 
-func (c *Controller) getActiveGenerationEndpointRules(namespace string) ([]*tratteria1alpha1.GenerationEndpointRule, error) {
+func (c *Controller) getActiveGenerationEndpointRules(namespace string) ([]*tratteria1alpha1.GenerationTraTRule, error) {
 	traTs, err := c.traTsLister.TraTs(namespace).List(labels.Everything())
 	if err != nil {
 		klog.Error("Failed to list TraTs in namespace:", namespace, err)
@@ -165,11 +165,11 @@ func (c *Controller) getActiveGenerationEndpointRules(namespace string) ([]*trat
 		return nil, err
 	}
 
-	var endpointGenerationRules []*tratteria1alpha1.GenerationEndpointRule
+	var endpointGenerationRules []*tratteria1alpha1.GenerationTraTRule
 
 	for _, trat := range traTs {
 		if trat.Status.Status == "DONE" {
-			endpointGenerationRule, err := trat.GetGenerationEndpointRule()
+			endpointGenerationRule, err := trat.GetGenerationTraTRule()
 			if err != nil {
 				return nil, err
 			}

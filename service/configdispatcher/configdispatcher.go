@@ -18,10 +18,10 @@ import (
 )
 
 const (
-	VERIFICATION_ENDPOINT_RULE_WEBHOOK_ENDPOINT = "/verification-endpoint-rule-webhook"
-	VERIFICATION_TOKEN_RULE_WEBHOOK_ENDPOINT    = "/verification-token-rule-webhook"
-	GENERATION_ENDPOINT_RULE_WEBHOOK_ENDPOINT   = "/generation-endpoint-rule-webhook"
-	GENERATION_TOKEN_RULE_WEBHOOK_ENDPOINT      = "/generation-token-rule-webhook"
+	VERIFICATION_ENDPOINT_RULE_WEBHOOK_ENDPOINT = "/verification-trat-rule-webhook"
+	VERIFICATION_TOKEN_RULE_WEBHOOK_ENDPOINT    = "/verification-tratteria-config-rule-webhook"
+	GENERATION_ENDPOINT_RULE_WEBHOOK_ENDPOINT   = "/generation-trat-rule-webhook"
+	GENERATION_TOKEN_RULE_WEBHOOK_ENDPOINT      = "/generation-tratteria-config-rule-webhook"
 )
 
 type ConfigDispatcher struct {
@@ -93,24 +93,24 @@ func (cd *ConfigDispatcher) dispatchConfig(ctx context.Context, serviceName stri
 	return nil
 }
 
-func (cd *ConfigDispatcher) DispatchVerificationEndpointRule(ctx context.Context, serviceName string, namespace string, verificationEndpointRule *v1alpha1.VerificationEndpointRule) error {
+func (cd *ConfigDispatcher) DispatchVerificationTraTRule(ctx context.Context, serviceName string, namespace string, verificationEndpointRule *v1alpha1.VerificationTraTRule) error {
 	jsonData, err := json.Marshal(verificationEndpointRule)
 	if err != nil {
-		return fmt.Errorf("error marshaling verification endpoint rule: %w", err)
+		return fmt.Errorf("error marshaling verification trat rule: %w", err)
 	}
 
 	err = cd.dispatchConfig(ctx, serviceName, namespace, VERIFICATION_ENDPOINT_RULE_WEBHOOK_ENDPOINT, jsonData)
 	if err != nil {
-		return fmt.Errorf("error dispatching verification endpoint rule to %s service: %w", serviceName, err)
+		return fmt.Errorf("error dispatching verification trat rule to %s service: %w", serviceName, err)
 	}
 
 	return nil
 }
 
-func (cd *ConfigDispatcher) DispatchVerificationTokenRule(ctx context.Context, namespace string, verificationTokenRule *v1alpha1.VerificationTokenRule) error {
+func (cd *ConfigDispatcher) DispatchVerificationTratteriaConfigRule(ctx context.Context, namespace string, verificationTokenRule *v1alpha1.VerificationTratteriaConfigRule) error {
 	jsonData, err := json.Marshal(verificationTokenRule)
 	if err != nil {
-		return fmt.Errorf("error marshaling verification token rule: %w", err)
+		return fmt.Errorf("error marshaling verification tratteria config rule: %w", err)
 	}
 
 	var dispatchErrors []string
@@ -123,35 +123,35 @@ func (cd *ConfigDispatcher) DispatchVerificationTokenRule(ctx context.Context, n
 	}
 
 	if len(dispatchErrors) > 0 {
-		return fmt.Errorf("error dispatching verification token rule: %s", strings.Join(dispatchErrors, ", "))
+		return fmt.Errorf("error dispatching verification tratteria config rule: %s", strings.Join(dispatchErrors, ", "))
 	}
 
 	return nil
 }
 
-func (cd *ConfigDispatcher) DispatchGenerationEndpointRule(ctx context.Context, namespace string, generationEndpointRule *v1alpha1.GenerationEndpointRule) error {
+func (cd *ConfigDispatcher) DispatchGenerationTraTRule(ctx context.Context, namespace string, generationEndpointRule *v1alpha1.GenerationTraTRule) error {
 	jsonData, err := json.Marshal(generationEndpointRule)
 	if err != nil {
-		return fmt.Errorf("error marshaling generation endpoint rule: %w", err)
+		return fmt.Errorf("error marshaling generation trat rule: %w", err)
 	}
 
 	err = cd.dispatchConfig(ctx, common.TRATTERIA_SERVICE_NAME, namespace, GENERATION_ENDPOINT_RULE_WEBHOOK_ENDPOINT, jsonData)
 	if err != nil {
-		return fmt.Errorf("error dispatching generation endpoint rule to tratteria: %w", err)
+		return fmt.Errorf("error dispatching generation trat rule to tratteria: %w", err)
 	}
 
 	return nil
 }
 
-func (cd *ConfigDispatcher) DispatchGenerationTokentRule(ctx context.Context, namespace string, generationTokenRule *v1alpha1.GenerationTokenRule) error {
+func (cd *ConfigDispatcher) DispatchGenerationTratteriaConfigRule(ctx context.Context, namespace string, generationTokenRule *v1alpha1.GenerationTratteriaConfigRule) error {
 	jsonData, err := json.Marshal(generationTokenRule)
 	if err != nil {
-		return fmt.Errorf("error marshaling generation token rule: %w", err)
+		return fmt.Errorf("error marshaling generation tratteria config rule: %w", err)
 	}
 
 	err = cd.dispatchConfig(ctx, common.TRATTERIA_SERVICE_NAME, namespace, GENERATION_TOKEN_RULE_WEBHOOK_ENDPOINT, jsonData)
 	if err != nil {
-		return fmt.Errorf("error dispatching generation token rule to tratteria: %w", err)
+		return fmt.Errorf("error dispatching generation tratteria config rule to tratteria: %w", err)
 	}
 
 	return nil
