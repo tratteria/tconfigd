@@ -11,6 +11,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+const (
+	AGENT_INTERCEPTION_MODE = "interception"
+	AGENT_DELEGATION_MODE   = "delegation"
+)
+
 func CreatePodPatch(pod *corev1.Pod, injectInitContainer bool, agentHttpsApiPort int, agentHttpApiPort int, agentInterceptorPort int, spireAgentHostDir string, tconfigdSpiffeId spiffeid.ID) ([]jsonpatch.JsonPatchOperation, error) {
 	var patch []jsonpatch.JsonPatchOperation
 
@@ -19,14 +24,30 @@ func CreatePodPatch(pod *corev1.Pod, injectInitContainer bool, agentHttpsApiPort
 		return patch, nil
 	}
 
-	servicePort, portOk := pod.Annotations["tratteria/service-port"]
-
-	if !portOk {
-		return nil, fmt.Errorf("service-port must be specified when inject-sidecar is 'true'")
+	if mode, ok := pod.Annotations["tratteria/agent-mode"]; ok {
+		if mode == AGENT_INTERCEPTION_MODE {
+			injectInitContainer = true
+		} else if mode == AGENT_DELEGATION_MODE {
+			injectInitContainer = false
+		} else {
+			return nil, fmt.Errorf("invalid agent-mode %v specified", mode)
+		}
 	}
 
-	if _, err := strconv.Atoi(servicePort); err != nil {
-		return nil, fmt.Errorf("service-port must be a valid number")
+	var servicePort string
+
+	if injectInitContainer {
+		var portOk bool
+		
+		servicePort, portOk = pod.Annotations["tratteria/service-port"]
+
+		if !portOk {
+			return nil, fmt.Errorf("service-port must be specified when running in the interception mode")
+		}
+
+		if _, err := strconv.Atoi(servicePort); err != nil {
+			return nil, fmt.Errorf("service-port must be a valid number")
+		}
 	}
 
 	volumeName := "spire-agent-socket"
@@ -96,6 +117,10 @@ func CreatePodPatch(pod *corev1.Pod, injectInitContainer bool, agentHttpsApiPort
 			{
 				Name:  "SERVICE_PORT",
 				Value: servicePort,
+			},
+			{
+				Name:  "INTERCEPTION_MODE",
+				Value: strconv.FormatBool(injectInitContainer),
 			},
 			{
 				Name:  "TCONFIGD_URL",
