@@ -38,7 +38,7 @@ func CreatePodPatch(pod *corev1.Pod, injectInitContainer bool, agentHttpsApiPort
 
 	if injectInitContainer {
 		var portOk bool
-		
+
 		servicePort, portOk = pod.Annotations["tratteria/service-port"]
 
 		if !portOk {
