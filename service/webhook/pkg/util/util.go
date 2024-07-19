@@ -79,9 +79,9 @@ func CreatePodPatch(pod *corev1.Pod, injectInitContainer bool, agentHttpsApiPort
 
 	if injectInitContainer {
 		initContainer := corev1.Container{
-			Name:            "tratteria-agent-init",
-			Image:           "ghcr.io/tratteria/tratteria-agent-init:latest",
-			Args:            []string{"-i", servicePort, "-p", strconv.Itoa(agentInterceptorPort)},
+			Name:  "tratteria-agent-init",
+			Image: "ghcr.io/tratteria/tratteria-agent-init:latest",
+			Args:  []string{"-i", servicePort, "-p", strconv.Itoa(agentInterceptorPort)},
 			SecurityContext: &corev1.SecurityContext{
 				Capabilities: &corev1.Capabilities{
 					Add: []corev1.Capability{"NET_ADMIN"},
@@ -158,7 +158,7 @@ func CreatePodPatch(pod *corev1.Pod, injectInitContainer bool, agentHttpsApiPort
 				},
 			},
 		},
-		Ports:           []corev1.ContainerPort{{ContainerPort: 9070}},
+		Ports: []corev1.ContainerPort{{ContainerPort: 9070}},
 		VolumeMounts: []corev1.VolumeMount{
 			{
 				Name:      volumeName,
