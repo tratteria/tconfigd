@@ -11,13 +11,11 @@ import (
 
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
-	"github.com/tratteria/tconfigd/api"
 	"github.com/tratteria/tconfigd/config"
-	"github.com/tratteria/tconfigd/configdispatcher"
-	"github.com/tratteria/tconfigd/dataplaneregistry"
 	"github.com/tratteria/tconfigd/spiffe"
 	"github.com/tratteria/tconfigd/tratteriacontroller"
 	"github.com/tratteria/tconfigd/webhook"
+	"github.com/tratteria/tconfigd/websocketserver"
 	"go.uber.org/zap"
 )
 
@@ -66,35 +64,25 @@ func main() {
 		logger.Fatal("Error getting tconfigd spiffe id.", zap.Error(err))
 	}
 
-	dataPlaneRegistryManager := dataplaneregistry.NewRegistry()
-	configdispatcher := configdispatcher.NewConfigDispatcher(dataPlaneRegistryManager, x509Source)
-
-	tratteriaController := &tratteriacontroller.TratteriaController{
-		ConfigDispatcher: configdispatcher,
-	}
+	tratteriaController := tratteriacontroller.NewTratteriaController()
 
 	if err := tratteriaController.Run(); err != nil {
 		logger.Fatal("Failed to start TraT Controller server.", zap.Error(err))
 	}
 
-	go func() {
-		apiServer := &api.API{
-			DataPlaneRegistryManager: dataPlaneRegistryManager,
-			TratteriaController:      tratteriaController,
-			X509Source:               x509Source,
-			TratteriaSpiffeId:        spiffeid.ID(config.TratteriaSpiffeId),
-			Logger:                   logger,
-		}
+	webSocketServer := websocketserver.NewWebSocketServer(tratteriaController.Controller, x509Source, spiffeid.ID(config.TratteriaSpiffeId), logger)
 
-		if err := apiServer.Run(); err != nil {
-			logger.Fatal("Failed to start API server.", zap.Error(err))
+	tratteriaController.SetClientsRetriever(webSocketServer)
+
+	go func() {
+		if err := webSocketServer.Run(); err != nil {
+			logger.Fatal("Failed to start websocket server.", zap.Error(err))
 		}
 	}()
 
 	go func() {
 		webhook := &webhook.Webhook{
 			EnableTratInterception: bool(config.EnableTratInterception),
-			AgentHttpsApiPort:      int(config.AgentHttpsApiPort),
 			AgentHttpApiPort:       int(config.AgentHttpApiPort),
 			AgentInterceptorPort:   int(config.AgentInterceptorPort),
 			SpireAgentHostDir:      config.SpireAgentHostDir,

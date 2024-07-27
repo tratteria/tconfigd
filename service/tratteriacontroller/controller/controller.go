@@ -8,7 +8,7 @@ import (
 
 	"golang.org/x/time/rate"
 
-	"github.com/tratteria/tconfigd/configdispatcher"
+	"github.com/tratteria/tconfigd/ruledispatcher"
 
 	corev1 "k8s.io/api/core/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -57,7 +57,7 @@ type Controller struct {
 	tratteriaConfigsSynced cache.InformerSynced
 	workqueue              workqueue.TypedRateLimitingInterface[string]
 	recorder               record.EventRecorder
-	configDispatcher       *configdispatcher.ConfigDispatcher
+	ruleDispatcher         *ruledispatcher.RuleDispatcher
 }
 
 func NewController(
@@ -66,7 +66,7 @@ func NewController(
 	tratteriaclientset clientset.Interface,
 	traTInformer informers.TraTInformer,
 	tratteriaConfigInformer informers.TratteriaConfigInformer,
-	configDispatcher *configdispatcher.ConfigDispatcher) *Controller {
+	ruleDispatcher *ruledispatcher.RuleDispatcher) *Controller {
 	logger := klog.FromContext(ctx)
 
 	utilruntime.Must(tratteriascheme.AddToScheme(scheme.Scheme))
@@ -93,7 +93,7 @@ func NewController(
 		tratteriaConfigsSynced: tratteriaConfigInformer.Informer().HasSynced,
 		workqueue:              workqueue.NewTypedRateLimitingQueue(ratelimiter),
 		recorder:               recorder,
-		configDispatcher:       configDispatcher,
+		ruleDispatcher:         ruleDispatcher,
 	}
 
 	logger.Info("Setting up event handlers")
@@ -215,35 +215,35 @@ func (c *Controller) syncHandler(ctx context.Context, key string) error {
 }
 
 func (c *Controller) GetActiveVerificationRules(serviceName string, namespace string) (*tratteria1alpha1.VerificationRules, error) {
-	verificationTratteriaConfigRule, err := c.getActiveVerificationTratteriaConfigRule(namespace)
+	tratteriaConfigVerificationRule, err := c.GetActiveTratteriaConfigVerificationRule(namespace)
 	if err != nil {
 		return nil, err
 	}
 
-	verificationTraTRules, err := c.getActiveVerificationTraTRules(serviceName, namespace)
+	traTVerificationRules, err := c.GetActiveTraTVerificationRules(serviceName, namespace)
 	if err != nil {
 		return nil, err
 	}
 
 	return &tratteria1alpha1.VerificationRules{
-		VerificationTratteriaConfigRule: verificationTratteriaConfigRule,
-		VerificationTraTRules:           verificationTraTRules,
+		TratteriaConfigVerificationRule: tratteriaConfigVerificationRule,
+		TraTVerificationRules:           traTVerificationRules,
 	}, nil
 }
 
 func (c *Controller) GetActiveGenerationRules(namespace string) (*tratteria1alpha1.GenerationRules, error) {
-	generationTratteriaConfigRule, err := c.getActiveGenerationTokenRule(namespace)
+	generationTratteriaConfigRule, err := c.GetActiveGenerationTokenRule(namespace)
 	if err != nil {
 		return nil, err
 	}
 
-	generationTraTRules, err := c.getActiveGenerationEndpointRules(namespace)
+	generationTraTRules, err := c.GetActiveGenerationEndpointRules(namespace)
 	if err != nil {
 		return nil, err
 	}
 
 	return &tratteria1alpha1.GenerationRules{
-		GenerationTratteriaConfigRule: generationTratteriaConfigRule,
-		GenerationTraTRules:           generationTraTRules,
+		TratteriaConfigGenerationRule: generationTratteriaConfigRule,
+		TraTGenerationRules:           generationTraTRules,
 	}, nil
 }

@@ -24,10 +24,9 @@ type Handlers struct {
 	logger                 *zap.Logger
 }
 
-func NewHandlers(enableTratInterception bool, agentHttpsApiPort int, agentHttpApiPort int, agentInterceptorPort int, spireAgentHostDir string, tconfigdSpiffeId spiffeid.ID, logger *zap.Logger) *Handlers {
+func NewHandlers(enableTratInterception bool, agentHttpApiPort int, agentInterceptorPort int, spireAgentHostDir string, tconfigdSpiffeId spiffeid.ID, logger *zap.Logger) *Handlers {
 	return &Handlers{
 		enableTratInterception: enableTratInterception,
-		agentHttpsApiPort:      agentHttpsApiPort,
 		agentHttpApiPort:       agentHttpApiPort,
 		agentInterceptorPort:   agentInterceptorPort,
 		spireAgentHostDir:      spireAgentHostDir,
