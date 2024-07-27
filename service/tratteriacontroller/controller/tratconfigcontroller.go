@@ -35,7 +35,7 @@ func (c *Controller) handleTratteriaConfig(ctx context.Context, key string) erro
 		return err
 	}
 
-	verificationTokenRule, err := tratteriaConfig.GetVerificationTratteriaConfigRule()
+	verificationTokenRule, err := tratteriaConfig.GetTratteriaConfigVerificationRule()
 	if err != nil {
 		messagedErr := fmt.Errorf("error retrieving verification token rule from %s tratteria config: %w", name, err)
 
@@ -48,7 +48,7 @@ func (c *Controller) handleTratteriaConfig(ctx context.Context, key string) erro
 		return messagedErr
 	}
 
-	err = c.configDispatcher.DispatchVerificationTratteriaConfigRule(ctx, namespace, verificationTokenRule)
+	err = c.ruleDispatcher.DispatchTratteriaConfigVerificationRule(ctx, namespace, verificationTokenRule)
 	if err != nil {
 		messagedErr := fmt.Errorf("error dispatching %s tratteria config verification token rule: %w", name, err)
 
@@ -63,7 +63,7 @@ func (c *Controller) handleTratteriaConfig(ctx context.Context, key string) erro
 
 	c.recorder.Event(tratteriaConfig, corev1.EventTypeNormal, string(VerificationApplicationStage)+" successful", string(VerificationApplicationStage)+" completed successfully")
 
-	generationTokenRule, err := tratteriaConfig.GetGenerationTratteriaConfigRule()
+	generationTokenRule, err := tratteriaConfig.GetTratteriaConfigGenerationRule()
 	if err != nil {
 		messagedErr := fmt.Errorf("error retrieving generation token rules from %s tratteria config: %w", name, err)
 
@@ -76,7 +76,7 @@ func (c *Controller) handleTratteriaConfig(ctx context.Context, key string) erro
 		return messagedErr
 	}
 
-	err = c.configDispatcher.DispatchGenerationTratteriaConfigRule(ctx, namespace, generationTokenRule)
+	err = c.ruleDispatcher.DispatchTratteriaConfigGenerationRule(ctx, namespace, generationTokenRule)
 	if err != nil {
 		messagedErr := fmt.Errorf("error dispatching %s tratteria config generation token rule: %w", name, err)
 
@@ -129,7 +129,7 @@ func (c *Controller) updateSuccessTratteriaConfigStatus(ctx context.Context, tra
 	return updateErr
 }
 
-func (c *Controller) getActiveVerificationTratteriaConfigRule(namespace string) (*tratteria1alpha1.VerificationTratteriaConfigRule, error) {
+func (c *Controller) GetActiveTratteriaConfigVerificationRule(namespace string) (*tratteria1alpha1.TratteriaConfigVerificationRule, error) {
 	tratteriaConfigs, err := c.tratteriaConfigsLister.TratteriaConfigs(namespace).List(labels.Everything())
 	if err != nil {
 		klog.Error("Failed to list TratteriaConfigs in namespace:", namespace, err)
@@ -139,7 +139,7 @@ func (c *Controller) getActiveVerificationTratteriaConfigRule(namespace string) 
 
 	for _, config := range tratteriaConfigs {
 		if config.Status.Status == "DONE" {
-			verificationTokenRule, err := config.GetVerificationTratteriaConfigRule()
+			verificationTokenRule, err := config.GetTratteriaConfigVerificationRule()
 			if err != nil {
 				return nil, err
 			}
@@ -151,7 +151,7 @@ func (c *Controller) getActiveVerificationTratteriaConfigRule(namespace string) 
 	return nil, nil
 }
 
-func (c *Controller) getActiveGenerationTokenRule(namespace string) (*tratteria1alpha1.GenerationTratteriaConfigRule, error) {
+func (c *Controller) GetActiveGenerationTokenRule(namespace string) (*tratteria1alpha1.TratteriaConfigGenerationRule, error) {
 	tratteriaConfigs, err := c.tratteriaConfigsLister.TratteriaConfigs(namespace).List(labels.Everything())
 	if err != nil {
 		klog.Error("Failed to list TratteriaConfigs in namespace:", namespace, err)
@@ -161,7 +161,7 @@ func (c *Controller) getActiveGenerationTokenRule(namespace string) (*tratteria1
 
 	for _, config := range tratteriaConfigs {
 		if config.Status.Status == "DONE" {
-			generationTokenRule, err := config.GetGenerationTratteriaConfigRule()
+			generationTokenRule, err := config.GetTratteriaConfigGenerationRule()
 			if err != nil {
 				return nil, err
 			}

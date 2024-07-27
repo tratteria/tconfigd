@@ -7,7 +7,6 @@ import (
 
 	"github.com/mattbaird/jsonpatch"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
-	"github.com/tratteria/tconfigd/common"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -122,8 +121,8 @@ func CreatePodPatch(pod *corev1.Pod, injectInitContainer bool, agentHttpsApiPort
 				Value: strconv.FormatBool(injectInitContainer),
 			},
 			{
-				Name:  "TCONFIGD_URL",
-				Value: "https://tconfigd.tratteria-system.svc.cluster.local:8443",
+				Name:  "TCONFIGD_HOST",
+				Value: "tconfigd.tratteria-system.svc.cluster.local:8443",
 			},
 			{
 				Name:  "TCONFIGD_SPIFFE_ID",
@@ -134,20 +133,12 @@ func CreatePodPatch(pod *corev1.Pod, injectInitContainer bool, agentHttpsApiPort
 				Value: "unix:///run/spire/sockets/agent.sock",
 			},
 			{
-				Name:  "AGENT_HTTPS_API_PORT",
-				Value: strconv.Itoa(agentHttpsApiPort),
-			},
-			{
 				Name:  "AGENT_HTTP_API_PORT",
 				Value: strconv.Itoa(agentHttpApiPort),
 			},
 			{
 				Name:  "AGENT_INTERCEPTOR_PORT",
 				Value: strconv.Itoa(agentInterceptorPort),
-			},
-			{
-				Name:  "HEARTBEAT_INTERVAL_MINUTES",
-				Value: strconv.Itoa(common.DATA_PLANE_HEARTBEAT_INTERVAL_MINUTES),
 			},
 			{
 				Name: "MY_NAMESPACE",

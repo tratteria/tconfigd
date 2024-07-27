@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/tratteria/tconfigd/configdispatcher"
+	"github.com/tratteria/tconfigd/ruledispatcher"
 
 	"github.com/tratteria/tconfigd/tratteriacontroller/pkg/signals"
+	"github.com/tratteria/tconfigd/websocketserver"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
@@ -18,8 +19,18 @@ import (
 )
 
 type TratteriaController struct {
-	ConfigDispatcher *configdispatcher.ConfigDispatcher
-	Controller       *controller.Controller
+	RuleDispatcher *ruledispatcher.RuleDispatcher
+	Controller     *controller.Controller
+}
+
+func NewTratteriaController() *TratteriaController {
+	return &TratteriaController{
+		RuleDispatcher: ruledispatcher.NewRuleDispatcher(),
+	}
+}
+
+func (tc *TratteriaController) SetClientsRetriever(clientsRetriever websocketserver.ClientsRetriever) {
+	tc.RuleDispatcher.SetClientsRetriever(clientsRetriever)
 }
 
 func (tc *TratteriaController) Run() error {
@@ -49,15 +60,14 @@ func (tc *TratteriaController) Run() error {
 	tratInformer := tratteriaInformerFactory.Tratteria().V1alpha1().TraTs()
 	tratteriaConfigInformer := tratteriaInformerFactory.Tratteria().V1alpha1().TratteriaConfigs()
 
-	controller := controller.NewController(ctx, kubeClient, tratteriaClient, tratInformer, tratteriaConfigInformer, tc.ConfigDispatcher)
-	tc.Controller = controller
+	tc.Controller = controller.NewController(ctx, kubeClient, tratteriaClient, tratInformer, tratteriaConfigInformer, tc.RuleDispatcher)
 
 	go func() {
 		klog.Info("Starting TraT Controller...")
 
 		tratteriaInformerFactory.Start(ctx.Done())
 
-		if err := controller.Run(ctx, 2); err != nil {
+		if err := tc.Controller.Run(ctx, 2); err != nil {
 			klog.Errorf("error running controller: %v", err)
 		}
 	}()
