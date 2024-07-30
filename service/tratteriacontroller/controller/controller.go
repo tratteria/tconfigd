@@ -3,11 +3,15 @@ package controller
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/time/rate"
 
+	"github.com/tratteria/tconfigd/common"
 	"github.com/tratteria/tconfigd/ruledispatcher"
 
 	corev1 "k8s.io/api/core/v1"
@@ -48,6 +52,34 @@ const (
 	TratteriaConfigKind = "TratteriaConfig"
 )
 
+type ServiceHash struct {
+	ruleVersionNumber int64
+	mu                sync.RWMutex
+	hash              string
+}
+
+type NamespaceRulesHashes struct {
+	mu                  sync.RWMutex
+	servicesRulesHashes map[string]*ServiceHash
+}
+
+func NewNamespaceRulesHashes() *NamespaceRulesHashes {
+	return &NamespaceRulesHashes{
+		servicesRulesHashes: make(map[string]*ServiceHash),
+	}
+}
+
+type AllRulesHashes struct {
+	mu                    sync.RWMutex
+	namespacesRulesHashes map[string]*NamespaceRulesHashes
+}
+
+func NewAllRulesHashes() *AllRulesHashes {
+	return &AllRulesHashes{
+		namespacesRulesHashes: make(map[string]*NamespaceRulesHashes),
+	}
+}
+
 type Controller struct {
 	kubeclientset          kubernetes.Interface
 	tratteriaclientset     clientset.Interface
@@ -58,6 +90,8 @@ type Controller struct {
 	workqueue              workqueue.TypedRateLimitingInterface[string]
 	recorder               record.EventRecorder
 	ruleDispatcher         *ruledispatcher.RuleDispatcher
+	ruleVersionNumber      int64
+	allRulesHashes         *AllRulesHashes
 }
 
 func NewController(
@@ -94,22 +128,33 @@ func NewController(
 		workqueue:              workqueue.NewTypedRateLimitingQueue(ratelimiter),
 		recorder:               recorder,
 		ruleDispatcher:         ruleDispatcher,
+		ruleVersionNumber:      0,
+		allRulesHashes:         NewAllRulesHashes(),
 	}
 
 	logger.Info("Setting up event handlers")
 
 	traTInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: controller.enqueueObject,
+		AddFunc: controller.AddFunc,
 	})
 
 	tratteriaConfigInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: controller.enqueueObject,
+		AddFunc: controller.AddFunc,
 	})
 
 	return controller
 }
 
-func (c *Controller) enqueueObject(obj interface{}) {
+func (c *Controller) AddFunc(obj interface{}) {
+	// This version number and higher represent the rule states that are guaranteed to incorporate this particular change
+	versionNumber := atomic.AddInt64(&c.ruleVersionNumber, 1)
+
+	// Enqueuing the version number to track which clients have already incorporated this change and which clients still
+	// need this change propagated
+	c.enqueueObject(obj, versionNumber)
+}
+
+func (c *Controller) enqueueObject(obj interface{}, versionNumber int64) {
 	key, err := cache.MetaNamespaceKeyFunc(obj)
 	if err != nil {
 		utilruntime.HandleError(err)
@@ -117,14 +162,22 @@ func (c *Controller) enqueueObject(obj interface{}) {
 		return
 	}
 
+	var resourceType string
+
 	switch obj.(type) {
 	case *tratteria1alpha1.TraT:
-		c.workqueue.Add(TraTKind + "/" + key)
+		resourceType = TraTKind
 	case *tratteria1alpha1.TratteriaConfig:
-		c.workqueue.Add(TratteriaConfigKind + "/" + key)
+		resourceType = TratteriaConfigKind
 	default:
 		utilruntime.HandleError(fmt.Errorf("unknown type cannot be enqueued: %T", obj))
+
+		return
 	}
+
+	c.workqueue.Add(fmt.Sprintf("%s/%s/%d", resourceType, key, versionNumber))
+
+	klog.V(4).Infof("Enqueued %s '%s' with new rule version %d", resourceType, key, versionNumber)
 }
 
 func (c *Controller) Run(ctx context.Context, workers int) error {
@@ -194,19 +247,31 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 
 func (c *Controller) syncHandler(ctx context.Context, key string) error {
 	parts := strings.Split(key, "/")
-	if len(parts) < 3 {
+	if len(parts) < 4 {
 		utilruntime.HandleError(fmt.Errorf("unexpected key format: %s", key))
+
 		return nil
 	}
 
 	resourceType := parts[0]
-	key = parts[1] + "/" + parts[2]
+	objectKey := parts[1] + "/" + parts[2]
+	versionNumber, err := strconv.Atoi(parts[3])
+
+	if err != nil {
+		utilruntime.HandleError(fmt.Errorf("invalid version number in key: %s", key))
+
+		return nil
+	}
+
+	logger := klog.FromContext(ctx)
+
+	logger.V(4).Info("Processing", "resourceType", resourceType, "key", objectKey, "version", versionNumber)
 
 	switch resourceType {
 	case TraTKind:
-		return c.handleTraT(ctx, key)
+		return c.handleTraT(ctx, objectKey, int64(versionNumber))
 	case TratteriaConfigKind:
-		return c.handleTratteriaConfig(ctx, key)
+		return c.handleTratteriaConfig(ctx, objectKey, int64(versionNumber))
 	default:
 		utilruntime.HandleError(fmt.Errorf("unhandled resource type: %s", resourceType))
 
@@ -214,36 +279,145 @@ func (c *Controller) syncHandler(ctx context.Context, key string) error {
 	}
 }
 
-func (c *Controller) GetActiveVerificationRules(serviceName string, namespace string) (*tratteria1alpha1.VerificationRules, error) {
+func (c *Controller) GetActiveVerificationRules(serviceName string, namespace string) (*tratteria1alpha1.VerificationRules, int64, error) {
+	// The returned rule is guaranteed to incorporate changes at least up to and including this rule version number
+	activeRuleVersionNumber := atomic.LoadInt64(&c.ruleVersionNumber)
+
 	tratteriaConfigVerificationRule, err := c.GetActiveTratteriaConfigVerificationRule(namespace)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	traTVerificationRules, err := c.GetActiveTraTVerificationRules(serviceName, namespace)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	return &tratteria1alpha1.VerificationRules{
-		TratteriaConfigVerificationRule: tratteriaConfigVerificationRule,
-		TraTVerificationRules:           traTVerificationRules,
-	}, nil
+			TratteriaConfigVerificationRule: tratteriaConfigVerificationRule,
+			TraTVerificationRules:           traTVerificationRules,
+		},
+		activeRuleVersionNumber,
+		nil
 }
 
-func (c *Controller) GetActiveGenerationRules(namespace string) (*tratteria1alpha1.GenerationRules, error) {
+func (c *Controller) GetActiveVerificationRulesHash(serviceName string, namespace string) (string, int64, error) {
+	err := c.RecomputeRulesHashesIfNotLatest(serviceName, namespace)
+	if err != nil {
+		return "", 0, err
+	}
+
+	c.allRulesHashes.namespacesRulesHashes[namespace].servicesRulesHashes[serviceName].mu.RLock()
+	defer c.allRulesHashes.namespacesRulesHashes[namespace].servicesRulesHashes[serviceName].mu.RUnlock()
+
+	return c.allRulesHashes.namespacesRulesHashes[namespace].servicesRulesHashes[serviceName].hash,
+		c.allRulesHashes.namespacesRulesHashes[namespace].servicesRulesHashes[serviceName].ruleVersionNumber,
+		nil
+}
+
+func (c *Controller) GetActiveGenerationRules(namespace string) (*tratteria1alpha1.GenerationRules, int64, error) {
+	// The returned rule is guaranteed to incorporate changes at least up to and including this rule version number
+	activeRuleVersionNumber := atomic.LoadInt64(&c.ruleVersionNumber)
+
 	generationTratteriaConfigRule, err := c.GetActiveGenerationTokenRule(namespace)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	generationTraTRules, err := c.GetActiveGenerationEndpointRules(namespace)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	return &tratteria1alpha1.GenerationRules{
-		TratteriaConfigGenerationRule: generationTratteriaConfigRule,
-		TraTGenerationRules:           generationTraTRules,
-	}, nil
+			TratteriaConfigGenerationRule: generationTratteriaConfigRule,
+			TraTGenerationRules:           generationTraTRules,
+		},
+		activeRuleVersionNumber,
+		nil
+}
+
+func (c *Controller) GetActiveGenerationRulesHash(namespace string) (string, int64, error) {
+	err := c.RecomputeRulesHashesIfNotLatest(common.TRATTERIA_SERVICE_NAME, namespace)
+	if err != nil {
+		return "", 0, err
+	}
+
+	c.allRulesHashes.namespacesRulesHashes[namespace].servicesRulesHashes[common.TRATTERIA_SERVICE_NAME].mu.RLock()
+	defer c.allRulesHashes.namespacesRulesHashes[namespace].servicesRulesHashes[common.TRATTERIA_SERVICE_NAME].mu.RUnlock()
+
+	return c.allRulesHashes.namespacesRulesHashes[namespace].servicesRulesHashes[common.TRATTERIA_SERVICE_NAME].hash,
+		c.allRulesHashes.namespacesRulesHashes[namespace].servicesRulesHashes[common.TRATTERIA_SERVICE_NAME].ruleVersionNumber,
+		nil
+}
+
+func (c *Controller) RecomputeRulesHashesIfNotLatest(serviceName string, namespace string) error {
+	if c.allRulesHashes.namespacesRulesHashes[namespace] == nil {
+		c.allRulesHashes.mu.Lock()
+		if c.allRulesHashes.namespacesRulesHashes[namespace] == nil {
+			c.allRulesHashes.namespacesRulesHashes[namespace] = NewNamespaceRulesHashes()
+		}
+		c.allRulesHashes.mu.Unlock()
+	}
+
+	namespaceHashes := c.allRulesHashes.namespacesRulesHashes[namespace]
+
+	if namespaceHashes.servicesRulesHashes[serviceName] == nil {
+		namespaceHashes.mu.Lock()
+		if namespaceHashes.servicesRulesHashes[serviceName] == nil {
+			namespaceHashes.servicesRulesHashes[serviceName] = &ServiceHash{}
+		}
+		namespaceHashes.mu.Unlock()
+	}
+
+	serviceHash := namespaceHashes.servicesRulesHashes[serviceName]
+
+	serviceHash.mu.RLock()
+	serviceHashVersionNumber := serviceHash.ruleVersionNumber
+	serviceHash.mu.RUnlock()
+
+	if atomic.LoadInt64(&c.ruleVersionNumber) == serviceHashVersionNumber {
+		return nil
+	}
+
+	serviceHash.mu.Lock()
+	defer serviceHash.mu.Unlock()
+
+	if atomic.LoadInt64(&c.ruleVersionNumber) == serviceHash.ruleVersionNumber {
+		return nil
+	}
+
+	// Rule version number that is tagged to the computed hash
+	// The computed hash is guaranteed to incorporate changes at least up to and including this rule version number
+	ruleVersionNumber := atomic.LoadInt64(&c.ruleVersionNumber)
+
+	if serviceName == common.TRATTERIA_SERVICE_NAME {
+		activeGenerationRules, _, err := c.GetActiveGenerationRules(namespace)
+		if err != nil {
+			return err
+		}
+
+		generationRuleHash, err := activeGenerationRules.ComputeStableHash()
+		if err != nil {
+			return err
+		}
+
+		serviceHash.hash = generationRuleHash
+	} else {
+		activeVerificationRules, _, err := c.GetActiveVerificationRules(serviceName, namespace)
+		if err != nil {
+			return err
+		}
+
+		verificationRuleHash, err := activeVerificationRules.ComputeStableHash()
+		if err != nil {
+			return err
+		}
+
+		serviceHash.hash = verificationRuleHash
+	}
+
+	serviceHash.ruleVersionNumber = ruleVersionNumber
+
+	return nil
 }

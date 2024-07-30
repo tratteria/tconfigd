@@ -15,7 +15,7 @@ import (
 	tratteria1alpha1 "github.com/tratteria/tconfigd/tratteriacontroller/pkg/apis/tratteria/v1alpha1"
 )
 
-func (c *Controller) handleTratteriaConfig(ctx context.Context, key string) error {
+func (c *Controller) handleTratteriaConfig(ctx context.Context, key string, versionNumber int64) error {
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 
 	if err != nil {
@@ -48,7 +48,7 @@ func (c *Controller) handleTratteriaConfig(ctx context.Context, key string) erro
 		return messagedErr
 	}
 
-	err = c.ruleDispatcher.DispatchTratteriaConfigVerificationRule(ctx, namespace, verificationTokenRule)
+	err = c.ruleDispatcher.DispatchTratteriaConfigVerificationRule(ctx, namespace, verificationTokenRule, versionNumber)
 	if err != nil {
 		messagedErr := fmt.Errorf("error dispatching %s tratteria config verification token rule: %w", name, err)
 
@@ -76,7 +76,7 @@ func (c *Controller) handleTratteriaConfig(ctx context.Context, key string) erro
 		return messagedErr
 	}
 
-	err = c.ruleDispatcher.DispatchTratteriaConfigGenerationRule(ctx, namespace, generationTokenRule)
+	err = c.ruleDispatcher.DispatchTratteriaConfigGenerationRule(ctx, namespace, generationTokenRule, versionNumber)
 	if err != nil {
 		messagedErr := fmt.Errorf("error dispatching %s tratteria config generation token rule: %w", name, err)
 
@@ -138,12 +138,10 @@ func (c *Controller) GetActiveTratteriaConfigVerificationRule(namespace string) 
 	}
 
 	for _, config := range tratteriaConfigs {
-		if config.Status.Status == "DONE" {
-			verificationTokenRule, err := config.GetTratteriaConfigVerificationRule()
-			if err != nil {
-				return nil, err
-			}
-
+		verificationTokenRule, err := config.GetTratteriaConfigVerificationRule()
+		if err != nil {
+			return nil, err
+		} else {
 			return verificationTokenRule, nil
 		}
 	}
@@ -160,13 +158,12 @@ func (c *Controller) GetActiveGenerationTokenRule(namespace string) (*tratteria1
 	}
 
 	for _, config := range tratteriaConfigs {
-		if config.Status.Status == "DONE" {
-			generationTokenRule, err := config.GetTratteriaConfigGenerationRule()
-			if err != nil {
-				return nil, err
-			}
-
+		generationTokenRule, err := config.GetTratteriaConfigGenerationRule()
+		if err != nil {
+			return nil, err
+		} else {
 			return generationTokenRule, nil
+
 		}
 	}
 

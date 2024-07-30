@@ -5,6 +5,8 @@ import (
 )
 
 type RuleRetriever interface {
-	GetActiveVerificationRules(serviceName string, namespace string) (*tratteria1alpha1.VerificationRules, error)
-	GetActiveGenerationRules(namespace string) (*tratteria1alpha1.GenerationRules, error)
+	GetActiveVerificationRules(serviceName string, namespace string) (*tratteria1alpha1.VerificationRules, int64, error)
+	GetActiveVerificationRulesHash(serviceName string, namespace string) (string, int64, error)
+	GetActiveGenerationRules(namespace string) (*tratteria1alpha1.GenerationRules, int64, error)
+	GetActiveGenerationRulesHash(namespace string) (string, int64, error)
 }
