@@ -12,7 +12,7 @@ updates its cache, and invokes the respective handler. Each handler performs the
 
 1. Increments the global rule version number by 1 and assigns this version number to the operation.
 2. Loops through the clients that need to receive this change.
-3. If the client's rule version number is less than the operation's version number, pushes the change to the client.
+3. If the client's rule version number is less than the operation's version number, push the change to the client.
 4. If all pushes succeed, marks the operation as done. If any push fails, marks the operation as pending and
    requeues it to the work queue.
 
