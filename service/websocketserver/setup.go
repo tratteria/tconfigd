@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,6 +16,7 @@ import (
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 	"github.com/tratteria/tconfigd/common"
+	tratteria1alpha1 "github.com/tratteria/tconfigd/tratteriacontroller/pkg/apis/tratteria/v1alpha1"
 	ruleretriever "github.com/tratteria/tconfigd/tratteriacontroller/ruleretriever"
 	"go.uber.org/zap"
 )
@@ -158,10 +160,15 @@ func (wss *WebSocketServer) handleWebSocket(w http.ResponseWriter, r *http.Reque
 		client.Close()
 	}
 
-	initialRulesPayload := &InitialRulesPayload{}
+	// The retrieved rules are guaranteed to incorporate changes up to and including this version number
+	var activeRuleVersionNumber int64
+	var activeGenerationRules *tratteria1alpha1.GenerationRules
+	var activeVerificationRules *tratteria1alpha1.VerificationRules
+
+	initialRulesPayload := &AllActiveRulesPayload{}
 
 	if serviceName == common.TRATTERIA_SERVICE_NAME {
-		initialGenerationRules, err := wss.ruleRetriever.GetActiveGenerationRules(namespace)
+		activeGenerationRules, activeRuleVersionNumber, err = wss.ruleRetriever.GetActiveGenerationRules(namespace)
 		if err != nil {
 			wss.Logger.Error("Error getting initial generation rules from controller", zap.Error(err))
 			sendErrorAndClose("Failed to retrieve initial generation rules", http.StatusInternalServerError)
@@ -169,9 +176,9 @@ func (wss *WebSocketServer) handleWebSocket(w http.ResponseWriter, r *http.Reque
 			return
 		}
 
-		initialRulesPayload.GenerationRules = initialGenerationRules
+		initialRulesPayload.GenerationRules = activeGenerationRules
 	} else {
-		initialVerificationRules, err := wss.ruleRetriever.GetActiveVerificationRules(serviceName, namespace)
+		activeVerificationRules, activeRuleVersionNumber, err = wss.ruleRetriever.GetActiveVerificationRules(serviceName, namespace)
 		if err != nil {
 			wss.Logger.Error("Error getting initial verification rules from controller", zap.Error(err))
 			sendErrorAndClose("Failed to retrieve initial verification rules", http.StatusInternalServerError)
@@ -179,7 +186,7 @@ func (wss *WebSocketServer) handleWebSocket(w http.ResponseWriter, r *http.Reque
 			return
 		}
 
-		initialRulesPayload.VerificationRules = initialVerificationRules
+		initialRulesPayload.VerificationRules = activeVerificationRules
 	}
 
 	initialRulesPayloadJSON, err := json.Marshal(initialRulesPayload)
@@ -210,6 +217,9 @@ func (wss *WebSocketServer) handleWebSocket(w http.ResponseWriter, r *http.Reque
 
 		return
 	}
+
+	// Assigning the version number to the client. This indicates that the client has rules incorporated up to and including this version number.
+	atomic.StoreInt64(&client.RuleVersionNumber, activeRuleVersionNumber)
 
 	wss.Logger.Info("Client connected and initial configuration sent successfully", zap.String("namespace", client.Namespace), zap.String("service", client.Service))
 

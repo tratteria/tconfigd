@@ -1,9 +1,14 @@
 package v1alpha1
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"sort"
 
 	"github.com/tratteria/tconfigd/tconfigderrors"
+	"github.com/tratteria/tconfigd/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -208,7 +213,137 @@ type VerificationRules struct {
 	TraTVerificationRules           []*TraTVerificationRule          `json:"traTVerificationRules"`
 }
 
+func (verificationRules *VerificationRules) ComputeStableHash() (string, error) {
+	var sortErr error
+
+	sort.SliceStable(verificationRules.TraTVerificationRules, func(i, j int) bool {
+		if sortErr != nil {
+			return false
+		}
+
+		iJSON, err := json.Marshal(verificationRules.TraTVerificationRules[i])
+		if err != nil {
+			sortErr = fmt.Errorf("failed to marshal rule %d: %w", i, err)
+
+			return false
+		}
+
+		jJSON, err := json.Marshal(verificationRules.TraTVerificationRules[j])
+		if err != nil {
+			sortErr = fmt.Errorf("failed to marshal rule %d: %w", j, err)
+
+			return false
+		}
+
+		iStr, err := utils.CanonicalizeJSON(json.RawMessage(iJSON))
+		if err != nil {
+			sortErr = fmt.Errorf("failed to canonicalize rule %d: %w", i, err)
+
+			return false
+		}
+
+		jStr, err := utils.CanonicalizeJSON(json.RawMessage(jJSON))
+		if err != nil {
+			sortErr = fmt.Errorf("failed to canonicalize rule %d: %w", j, err)
+
+			return false
+		}
+
+		return iStr < jStr
+	})
+
+	if sortErr != nil {
+		return "", fmt.Errorf("error during sorting: %w", sortErr)
+	}
+
+	data, err := json.Marshal(verificationRules)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal rules: %w", err)
+	}
+
+	var jsonData interface{}
+
+	err = json.Unmarshal(data, &jsonData)
+	if err != nil {
+		return "", fmt.Errorf("failed to unmarshal for canonicalization: %w", err)
+	}
+
+	canonicalizedData, err := utils.CanonicalizeJSON(jsonData)
+	if err != nil {
+		return "", fmt.Errorf("failed to canonicalize JSON: %w", err)
+	}
+
+	hash := sha256.Sum256([]byte(canonicalizedData))
+
+	return hex.EncodeToString(hash[:]), nil
+}
+
 type GenerationRules struct {
 	TratteriaConfigGenerationRule *TratteriaConfigGenerationRule `json:"tratteriaConfigGenerationRule"`
 	TraTGenerationRules           []*TraTGenerationRule          `json:"traTGenerationRules"`
+}
+
+func (generationRules *GenerationRules) ComputeStableHash() (string, error) {
+	var sortErr error
+
+	sort.SliceStable(generationRules.TraTGenerationRules, func(i, j int) bool {
+		if sortErr != nil {
+			return false
+		}
+
+		iJSON, err := json.Marshal(generationRules.TraTGenerationRules[i])
+		if err != nil {
+			sortErr = fmt.Errorf("failed to marshal rule %d: %w", i, err)
+
+			return false
+		}
+
+		jJSON, err := json.Marshal(generationRules.TraTGenerationRules[j])
+		if err != nil {
+			sortErr = fmt.Errorf("failed to marshal rule %d: %w", j, err)
+
+			return false
+		}
+
+		iStr, err := utils.CanonicalizeJSON(json.RawMessage(iJSON))
+		if err != nil {
+			sortErr = fmt.Errorf("failed to canonicalize rule %d: %w", i, err)
+
+			return false
+		}
+
+		jStr, err := utils.CanonicalizeJSON(json.RawMessage(jJSON))
+		if err != nil {
+			sortErr = fmt.Errorf("failed to canonicalize rule %d: %w", j, err)
+
+			return false
+		}
+
+		return iStr < jStr
+	})
+
+	if sortErr != nil {
+		return "", fmt.Errorf("error during sorting: %w", sortErr)
+	}
+
+	data, err := json.Marshal(generationRules)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal rules: %w", err)
+	}
+
+	var jsonData interface{}
+
+	err = json.Unmarshal(data, &jsonData)
+	if err != nil {
+		return "", fmt.Errorf("failed to unmarshal for canonicalization: %w", err)
+	}
+
+	canonicalizedData, err := utils.CanonicalizeJSON(jsonData)
+	if err != nil {
+		return "", fmt.Errorf("failed to canonicalize JSON: %w", err)
+	}
+
+	hash := sha256.Sum256([]byte(canonicalizedData))
+
+	return hex.EncodeToString(hash[:]), nil
 }

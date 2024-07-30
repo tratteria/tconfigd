@@ -15,7 +15,7 @@ import (
 	tratteria1alpha1 "github.com/tratteria/tconfigd/tratteriacontroller/pkg/apis/tratteria/v1alpha1"
 )
 
-func (c *Controller) handleTraT(ctx context.Context, key string) error {
+func (c *Controller) handleTraT(ctx context.Context, key string, versionNumber int64) error {
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 
 	if err != nil {
@@ -50,7 +50,7 @@ func (c *Controller) handleTraT(ctx context.Context, key string) error {
 
 	// TODO: Implement parallel dispatching of rules using goroutines
 	for service, serviceVerificationRule := range verificationEndpointRules {
-		err := c.ruleDispatcher.DispatchTraTVerificationRule(ctx, service, namespace, serviceVerificationRule)
+		err := c.ruleDispatcher.DispatchTraTVerificationRule(ctx, service, namespace, serviceVerificationRule, versionNumber)
 		if err != nil {
 			messagedErr := fmt.Errorf("error dispatching %s trat verification rule to %s service: %w", name, service, err)
 
@@ -79,7 +79,7 @@ func (c *Controller) handleTraT(ctx context.Context, key string) error {
 		return messagedErr
 	}
 
-	err = c.ruleDispatcher.DispatchTraTGenerationRule(ctx, namespace, generationEndpointRule)
+	err = c.ruleDispatcher.DispatchTraTGenerationRule(ctx, namespace, generationEndpointRule, versionNumber)
 	if err != nil {
 		messagedErr := fmt.Errorf("error dispatching %s trat generation rule: %w", name, err)
 
@@ -143,14 +143,12 @@ func (c *Controller) GetActiveTraTVerificationRules(serviceName string, namespac
 	var endpointVerificationRules []*tratteria1alpha1.TraTVerificationRule
 
 	for _, trat := range traTs {
-		if trat.Status.Status == "DONE" {
-			endpointVerificationRule, err := trat.GetTraTVerificationRules()
-			if err != nil {
-				return nil, err
-			}
-			if serviceEndpointVerificationRule := endpointVerificationRule[serviceName]; serviceEndpointVerificationRule != nil {
-				endpointVerificationRules = append(endpointVerificationRules, serviceEndpointVerificationRule)
-			}
+		endpointVerificationRule, err := trat.GetTraTVerificationRules()
+		if err != nil {
+			return nil, err
+		}
+		if serviceEndpointVerificationRule := endpointVerificationRule[serviceName]; serviceEndpointVerificationRule != nil {
+			endpointVerificationRules = append(endpointVerificationRules, serviceEndpointVerificationRule)
 		}
 	}
 
@@ -168,13 +166,11 @@ func (c *Controller) GetActiveGenerationEndpointRules(namespace string) ([]*trat
 	var endpointGenerationRules []*tratteria1alpha1.TraTGenerationRule
 
 	for _, trat := range traTs {
-		if trat.Status.Status == "DONE" {
-			endpointGenerationRule, err := trat.GetTraTGenerationRule()
-			if err != nil {
-				return nil, err
-			}
-			endpointGenerationRules = append(endpointGenerationRules, endpointGenerationRule)
+		endpointGenerationRule, err := trat.GetTraTGenerationRule()
+		if err != nil {
+			return nil, err
 		}
+		endpointGenerationRules = append(endpointGenerationRules, endpointGenerationRule)
 	}
 
 	return endpointGenerationRules, nil

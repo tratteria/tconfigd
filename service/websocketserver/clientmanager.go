@@ -1,3 +1,43 @@
+/**
+Rule Propagation Approach:
+
+When tconfigd starts (or restarts, or when the leader changes if multiple replicas are present), it initializes an 
+in-memory global rule version number starting at zero. Similarly, for each WebSocket client (i.e., Tratteria Service 
+and Tratteria Agents), it assigns a client rule version number also starting at zero. These rule version numbers 
+represent the state of the rules, with higher numbers indicating more recent states. These version numbers are 
+maintained only in tconfigd's memory and are not relevant to other components.
+
+When an Add, Update, or Delete operation of a Custom Resource (CR) occurs, tconfigd's informer is notified, 
+updates its cache, and invokes the respective handler. Each handler performs the following:
+
+1. Increments the global rule version number by 1 and assigns this version number to the operation.
+2. Loops through the clients that need to receive this change.
+3. If the client's rule version number is less than the operation's version number, pushes the change to the client.
+4. If all pushes succeed, marks the operation as done. If any push fails, marks the operation as pending and 
+   requeues it to the work queue.
+
+In addition to individual change propagation, regular rule validation and reconciliation are performed.
+Each client performs the following:
+
+1. Every 60 seconds (configurable through tconfigd static configuration), the client sends a WebSocket ping to the 
+   WebSocket server with its rule hash.
+2. The WebSocket server replies with a WebSocket pong.
+3. The WebSocket server compares the received hash with the latest hash. If they are the same, it updates the 
+   client's version number to the latest hash rule version number.
+4. If the received hash and latest hash are different, it performs a reconciliation request to the client and 
+   updates the client version number to the reconciled rules version number.
+
+The regular rule validation and reconciliation serve the following purposes:
+
+1. It acts as a backup to the individual change propagation. If certain individual change propagations fail, 
+   they will be propagated through the reconciliation process.
+2. If any rule propagation fails or if rules are propagated in an incorrect order resulting in inconsistent rules 
+   on the client side, the reconciliation process will correct the client's rules.
+
+The reconciliation process ensures eventual consistency of the rules in the system.
+*/
+
+
 package websocketserver
 
 import (
@@ -6,6 +46,7 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -30,7 +71,14 @@ const (
 	MessageTypeTratteriaConfigVerificationRuleUpsertResponse MessageType = "TRATTERIA_CONFIG_VERIFICATION_RULE_UPSERT_RESPONSE"
 	MessageTypeTratteriaConfigGenerationRuleUpsertRequest    MessageType = "TRATTERIA_CONFIG_GENERATION_RULE_UPSERT_REQUEST"
 	MessageTypeTratteriaConfigGenerationRuleUpsertResponse   MessageType = "TRATTERIA_CONFIG_GENERATION_RULE_UPSERT_RESPONSE"
+	MessageTypeRuleReconciliationRequest                     MessageType = "RULE_RECONCILIATION_REQUEST"
+	MessageTypeRuleReconciliationResponse                    MessageType = "RULE_RECONCILIATION_RESPONSE"
+	MessageTypeUnknown                                       MessageType = "UNKNOWN"
 )
+
+type PingData struct {
+	RuleHash string `json:"ruleHash"`
+}
 
 type Request struct {
 	ID      string          `json:"id"`
@@ -45,30 +93,32 @@ type Response struct {
 	Payload json.RawMessage `json:"payload,omitempty"`
 }
 
-type InitialRulesPayload struct {
+type AllActiveRulesPayload struct {
 	VerificationRules *tratteria1alpha1.VerificationRules `json:"verificationRules,omitempty"`
 	GenerationRules   *tratteria1alpha1.GenerationRules   `json:"generationRules,omitempty"`
 }
 
 type ClientManager struct {
-	Namespace       string
-	Service         string
-	Conn            *websocket.Conn
-	Send            chan []byte
-	Server          *WebSocketServer
-	pendingRequests sync.Map
-	closeOnce       sync.Once
-	done            chan struct{}
+	Namespace         string
+	Service           string
+	Conn              *websocket.Conn
+	Send              chan []byte
+	Server            *WebSocketServer
+	pendingRequests   sync.Map
+	closeOnce         sync.Once
+	done              chan struct{}
+	RuleVersionNumber int64
 }
 
 func NewClient(service string, namespace string, conn *websocket.Conn, server *WebSocketServer) *ClientManager {
 	return &ClientManager{
-		Namespace: namespace,
-		Service:   service,
-		Conn:      conn,
-		Send:      make(chan []byte, 256),
-		Server:    server,
-		done:      make(chan struct{}),
+		Namespace:         namespace,
+		Service:           service,
+		Conn:              conn,
+		Send:              make(chan []byte, 256),
+		Server:            server,
+		done:              make(chan struct{}),
+		RuleVersionNumber: 0,
 	}
 }
 
@@ -87,10 +137,12 @@ func (cm *ClientManager) readPump() {
 	}()
 
 	cm.Conn.SetReadDeadline(time.Now().Add(PONG_WAIT))
-	cm.Conn.SetPongHandler(func(string) error {
+	cm.Conn.SetPingHandler(func(appData string) error {
 		cm.Conn.SetReadDeadline(time.Now().Add(PONG_WAIT))
 
-		return nil
+		go cm.compareAndReconcileRule(appData)
+
+		return cm.writeMessage(websocket.PongMessage, nil)
 	})
 
 	for {
@@ -112,11 +164,102 @@ func (cm *ClientManager) readPump() {
 	}
 }
 
-func (cm *ClientManager) writePump() {
-	ticker := time.NewTicker(PING_PERIOD)
+func (cm *ClientManager) compareAndReconcileRule(appData string) {
+	var pingData PingData
 
+	err := json.Unmarshal([]byte(appData), &pingData)
+	if err != nil {
+		cm.Server.Logger.Error("Failed to unmarshal ping data", zap.Error(err))
+
+		return
+	}
+
+	var lateshHash string
+	var activeRuleVersionNumber int64
+
+	if cm.Service == common.TRATTERIA_SERVICE_NAME {
+		lateshHash, activeRuleVersionNumber, _ = cm.Server.ruleRetriever.GetActiveGenerationRulesHash(cm.Namespace)
+	} else {
+		lateshHash, activeRuleVersionNumber, _ = cm.Server.ruleRetriever.GetActiveVerificationRulesHash(cm.Service, cm.Namespace)
+	}
+
+	cm.Server.Logger.Info("Central and remote hash", zap.String("central", lateshHash), zap.String("remote", pingData.RuleHash))
+
+	if lateshHash != pingData.RuleHash {
+		cm.Server.Logger.Warn("Received ping with incorrect rule hash, triggering reconciliation...",
+			zap.String("service", cm.Service),
+			zap.String("namespace", cm.Namespace),
+			zap.String("central-hash", lateshHash),
+			zap.String("remote-hash", pingData.RuleHash))
+
+		err := cm.reconcileRules()
+		if err != nil {
+			cm.Server.Logger.Error("Failed to reconcile rules", zap.Error(err))
+		}
+	} else {
+		atomic.StoreInt64(&cm.RuleVersionNumber, activeRuleVersionNumber)
+	}
+}
+
+func (cm *ClientManager) reconcileRules() error {
+	var err error
+	var activeRuleVersionNumber int64
+	var completeGenerationRules *tratteria1alpha1.GenerationRules
+	var completeVerificationRules *tratteria1alpha1.VerificationRules
+
+	allActiveRulesPayload := &AllActiveRulesPayload{}
+
+	if cm.Service == common.TRATTERIA_SERVICE_NAME {
+		completeGenerationRules, activeRuleVersionNumber, err = cm.Server.ruleRetriever.GetActiveGenerationRules(cm.Namespace)
+		if err != nil {
+			cm.Server.Logger.Error("Error getting all active generation rules from controller", zap.Error(err))
+
+			return err
+		}
+
+		allActiveRulesPayload.GenerationRules = completeGenerationRules
+	} else {
+		completeVerificationRules, activeRuleVersionNumber, err = cm.Server.ruleRetriever.GetActiveVerificationRules(cm.Service, cm.Namespace)
+		if err != nil {
+			cm.Server.Logger.Error("Error getting all active verification rules from controller", zap.Error(err))
+
+			return err
+		}
+
+		allActiveRulesPayload.VerificationRules = completeVerificationRules
+	}
+
+	response, err := cm.SendRequest(MessageTypeRuleReconciliationRequest, allActiveRulesPayload)
+	if err != nil {
+		cm.Server.Logger.Error("Failed to send rule reconciliation request",
+			zap.String("namespace", cm.Namespace),
+			zap.String("service", cm.Service),
+			zap.Error(err))
+
+		return err
+	}
+
+	if response.Status != http.StatusOK {
+		cm.Server.Logger.Error("Received non-ok status from client on rule reconciliation request rule",
+			zap.Int("status", response.Status),
+			zap.String("namespace", cm.Namespace),
+			zap.String("service", cm.Service),
+			zap.Error(err))
+
+		return err
+	}
+
+	cm.Server.Logger.Info("Client's rule successfully reconcilized", zap.String("namespace", cm.Namespace), zap.String("service", cm.Service))
+
+	// After successful reconciliation, set the client version number to the reconcilized rule version, which represent the version number at least
+	// up which the reconciled rule incorportates changes
+	atomic.StoreInt64(&cm.RuleVersionNumber, activeRuleVersionNumber)
+
+	return nil
+}
+
+func (cm *ClientManager) writePump() {
 	defer func() {
-		ticker.Stop()
 		cm.Server.removeClient(cm)
 	}()
 
@@ -131,12 +274,6 @@ func (cm *ClientManager) writePump() {
 
 			if err := cm.writeMessage(websocket.TextMessage, message); err != nil {
 				cm.Server.Logger.Error("Failed to write message.", zap.Error(err))
-
-				return
-			}
-		case <-ticker.C:
-			if err := cm.writeMessage(websocket.PingMessage, nil); err != nil {
-				cm.Server.Logger.Error("Failed to write ping message.", zap.Error(err))
 
 				return
 			}
@@ -168,6 +305,7 @@ func (cm *ClientManager) handleMessage(message []byte) {
 		MessageTypeTraTGenerationRuleUpsertResponse,
 		MessageTypeTratteriaConfigVerificationRuleUpsertResponse,
 		MessageTypeTratteriaConfigGenerationRuleUpsertResponse,
+		MessageTypeRuleReconciliationResponse,
 		MessageTypeGetJWKSResponse:
 		cm.handleResponse(message)
 	default:
