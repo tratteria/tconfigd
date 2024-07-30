@@ -263,10 +263,6 @@ func (c *Controller) syncHandler(ctx context.Context, key string) error {
 		return nil
 	}
 
-	logger := klog.FromContext(ctx)
-
-	logger.V(4).Info("Processing", "resourceType", resourceType, "key", objectKey, "version", versionNumber)
-
 	switch resourceType {
 	case TraTKind:
 		return c.handleTraT(ctx, objectKey, int64(versionNumber))
