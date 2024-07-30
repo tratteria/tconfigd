@@ -1,5 +1,6 @@
 /**
-Rule Propagation Approach:
+Rule Propagation Approach(Here, rule means general rules for constructing and validating TraTs.
+It is the combination of all Tratteria resources i.e TraTs, TratteriaConfig, and TraTExclusion):
 
 When tconfigd starts (or restarts, or when the leader changes if multiple replicas are present), it initializes an
 in-memory global rule version number starting at zero. Similarly, for each WebSocket client (i.e., Tratteria Service
