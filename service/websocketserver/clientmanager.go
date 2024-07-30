@@ -1,42 +1,41 @@
 /**
 Rule Propagation Approach:
 
-When tconfigd starts (or restarts, or when the leader changes if multiple replicas are present), it initializes an 
-in-memory global rule version number starting at zero. Similarly, for each WebSocket client (i.e., Tratteria Service 
-and Tratteria Agents), it assigns a client rule version number also starting at zero. These rule version numbers 
-represent the state of the rules, with higher numbers indicating more recent states. These version numbers are 
+When tconfigd starts (or restarts, or when the leader changes if multiple replicas are present), it initializes an
+in-memory global rule version number starting at zero. Similarly, for each WebSocket client (i.e., Tratteria Service
+and Tratteria Agents), it assigns a client rule version number also starting at zero. These rule version numbers
+represent the state of the rules, with higher numbers indicating more recent states. These version numbers are
 maintained only in tconfigd's memory and are not relevant to other components.
 
-When an Add, Update, or Delete operation of a Custom Resource (CR) occurs, tconfigd's informer is notified, 
+When an Add, Update, or Delete operation of a Custom Resource (CR) occurs, tconfigd's informer is notified,
 updates its cache, and invokes the respective handler. Each handler performs the following:
 
 1. Increments the global rule version number by 1 and assigns this version number to the operation.
 2. Loops through the clients that need to receive this change.
 3. If the client's rule version number is less than the operation's version number, pushes the change to the client.
-4. If all pushes succeed, marks the operation as done. If any push fails, marks the operation as pending and 
+4. If all pushes succeed, marks the operation as done. If any push fails, marks the operation as pending and
    requeues it to the work queue.
 
 In addition to individual change propagation, regular rule validation and reconciliation are performed.
 Each client performs the following:
 
-1. Every 60 seconds (configurable through tconfigd static configuration), the client sends a WebSocket ping to the 
+1. Every 60 seconds (configurable through tconfigd static configuration), the client sends a WebSocket ping to the
    WebSocket server with its rule hash.
 2. The WebSocket server replies with a WebSocket pong.
-3. The WebSocket server compares the received hash with the latest hash. If they are the same, it updates the 
+3. The WebSocket server compares the received hash with the latest hash. If they are the same, it updates the
    client's version number to the latest hash rule version number.
-4. If the received hash and latest hash are different, it performs a reconciliation request to the client and 
+4. If the received hash and latest hash are different, it performs a reconciliation request to the client and
    updates the client version number to the reconciled rules version number.
 
 The regular rule validation and reconciliation serve the following purposes:
 
-1. It acts as a backup to the individual change propagation. If certain individual change propagations fail, 
+1. It acts as a backup to the individual change propagation. If certain individual change propagations fail,
    they will be propagated through the reconciliation process.
-2. If any rule propagation fails or if rules are propagated in an incorrect order resulting in inconsistent rules 
+2. If any rule propagation fails or if rules are propagated in an incorrect order resulting in inconsistent rules
    on the client side, the reconciliation process will correct the client's rules.
 
 The reconciliation process ensures eventual consistency of the rules in the system.
 */
-
 
 package websocketserver
 
@@ -175,6 +174,7 @@ func (cm *ClientManager) compareAndReconcileRule(appData string) {
 	}
 
 	var lateshHash string
+
 	var activeRuleVersionNumber int64
 
 	if cm.Service == common.TRATTERIA_SERVICE_NAME {
@@ -203,8 +203,11 @@ func (cm *ClientManager) compareAndReconcileRule(appData string) {
 
 func (cm *ClientManager) reconcileRules() error {
 	var err error
+
 	var activeRuleVersionNumber int64
+
 	var completeGenerationRules *tratteria1alpha1.GenerationRules
+
 	var completeVerificationRules *tratteria1alpha1.VerificationRules
 
 	allActiveRulesPayload := &AllActiveRulesPayload{}

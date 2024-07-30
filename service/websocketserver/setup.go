@@ -162,7 +162,9 @@ func (wss *WebSocketServer) handleWebSocket(w http.ResponseWriter, r *http.Reque
 
 	// The retrieved rules are guaranteed to incorporate changes up to and including this version number
 	var activeRuleVersionNumber int64
+
 	var activeGenerationRules *tratteria1alpha1.GenerationRules
+
 	var activeVerificationRules *tratteria1alpha1.VerificationRules
 
 	initialRulesPayload := &AllActiveRulesPayload{}

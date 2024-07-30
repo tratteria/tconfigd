@@ -29,22 +29,20 @@ func (rd *RuleDispatcher) dispatchRule(ctx context.Context, serviceName string, 
 	clients := rd.clientsRetriever.GetClientManagers(serviceName, namespace)
 
 	var dispatchErrors []string
-
-	for _, client := range clients {
-		/*
-		Only propagate rules to clients that don't already have the change. If a client's version number 
-		is equal to or greater than this particular change's version number, the client already 
+	/*
+		Only propagate rules to clients that don't already have the change. If a client's version number
+		is equal to or greater than this particular change's version number, the client already
 		incorporates this change.
-		
+
 		Clients can incorporate changes without being explicitly pushed through the reconciliation process.
-		
-		Reconciliation serves as a backup process for propagating changes and correcting any out-of-order 
+
+		Reconciliation serves as a backup process for propagating changes and correcting any out-of-order
 		or missed propagations.
-		
+
 		If a client's rule hash is found to be different, the client replaces its complete rule set with
 		the latest rule set and adopts the version number associated with the rules it just received.
-		*/
-		
+	*/
+	for _, client := range clients {
 		if atomic.LoadInt64(&client.RuleVersionNumber) < versionNumber {
 			_, err := client.SendRequest(messageType, rule)
 
