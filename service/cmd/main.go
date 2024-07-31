@@ -32,17 +32,17 @@ func main() {
 	}
 	defer logging.Sync()
 
-	logger := logging.GetLogger("main")
+	mainLogger := logging.GetLogger("main")
 
 	if len(os.Args) < 2 {
-		logger.Fatal(fmt.Sprintf("No configuration file provided. Please specify the configuration path as an argument when running the service.\nUsage: %s <config-path>", os.Args[0]))
+		mainLogger.Fatal(fmt.Sprintf("No configuration file provided. Please specify the configuration path as an argument when running the service.\nUsage: %s <config-path>", os.Args[0]))
 	}
 
 	configPath := os.Args[1]
 
 	config, err := config.GetConfig(configPath)
 	if err != nil {
-		logger.Fatal("Error reading configuration.", zap.Error(err))
+		mainLogger.Fatal("Error reading configuration.", zap.Error(err))
 	}
 
 	x509SrcCtx, cancel := context.WithTimeout(context.Background(), X509_SOURCE_TIMEOUT)
@@ -50,20 +50,20 @@ func main() {
 
 	x509Source, err := workloadapi.NewX509Source(x509SrcCtx)
 	if err != nil {
-		logger.Fatal("Failed to create X.509 source", zap.Error(err))
+		mainLogger.Fatal("Failed to create X.509 source", zap.Error(err))
 	}
 
 	defer x509Source.Close()
 
 	tconfigdSpiffeId, err := spiffe.FetchSpiffeIdFromX509(x509Source)
 	if err != nil {
-		logger.Fatal("Error getting tconfigd spiffe id.", zap.Error(err))
+		mainLogger.Fatal("Error getting tconfigd spiffe id.", zap.Error(err))
 	}
 
 	tratteriaController := tratteriacontroller.NewTratteriaController(logging.GetLogger("controller"))
 
 	if err := tratteriaController.Run(); err != nil {
-		logger.Fatal("Failed to start TraT Controller server.", zap.Error(err))
+		mainLogger.Fatal("Failed to start TraT Controller server.", zap.Error(err))
 	}
 
 	webSocketServer := websocketserver.NewWebSocketServer(tratteriaController.Controller, x509Source, spiffeid.ID(config.TratteriaSpiffeId), logging.GetLogger("websocket-server"))
@@ -72,7 +72,7 @@ func main() {
 
 	go func() {
 		if err := webSocketServer.Run(); err != nil {
-			logger.Fatal("Failed to start websocket server.", zap.Error(err))
+			mainLogger.Fatal("Failed to start websocket server.", zap.Error(err))
 		}
 	}()
 
@@ -87,13 +87,13 @@ func main() {
 		}
 
 		if err := webhook.Run(); err != nil {
-			logger.Fatal("Failed to start Webhook server.", zap.Error(err))
+			mainLogger.Fatal("Failed to start Webhook server.", zap.Error(err))
 		}
 	}()
 
 	<-ctx.Done()
 
-	logger.Info("Shutting down tconfigd...")
+	mainLogger.Info("Shutting down tconfigd...")
 }
 
 func setupSignalHandler(cancel context.CancelFunc) {
