@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -12,6 +11,7 @@ import (
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 	"github.com/tratteria/tconfigd/config"
+	"github.com/tratteria/tconfigd/logging"
 	"github.com/tratteria/tconfigd/spiffe"
 	"github.com/tratteria/tconfigd/tratteriacontroller"
 	"github.com/tratteria/tconfigd/webhook"
@@ -27,27 +27,23 @@ func main() {
 
 	setupSignalHandler(cancel)
 
-	logger, err := zap.NewProduction()
-	if err != nil {
-		log.Fatalf("Cannot initialize Zap logger: %v.", err)
-	}
-
-	defer func() {
-		if err := logger.Sync(); err != nil {
-			log.Printf("Error syncing logger: %v", err)
-		}
-	}()
-
 	if len(os.Args) < 2 {
-		logger.Fatal(fmt.Sprintf("No configuration file provided. Please specify the configuration path as an argument when running the service.\nUsage: %s <config-path>", os.Args[0]))
+		log.Fatalf("No configuration file provided. Please specify the configuration path as an argument when running the service.\nUsage: %s <config-path>", os.Args[0])
 	}
 
 	configPath := os.Args[1]
 
 	config, err := config.GetConfig(configPath)
 	if err != nil {
-		logger.Fatal("Error reading configuration.", zap.Error(err))
+		log.Fatal("Error reading configuration.", zap.Error(err))
 	}
+
+	if err := logging.InitLogger(); err != nil {
+		panic(err)
+	}
+	defer logging.Sync()
+
+	logger := logging.GetLogger("main")
 
 	x509SrcCtx, cancel := context.WithTimeout(context.Background(), X509_SOURCE_TIMEOUT)
 	defer cancel()
@@ -64,13 +60,13 @@ func main() {
 		logger.Fatal("Error getting tconfigd spiffe id.", zap.Error(err))
 	}
 
-	tratteriaController := tratteriacontroller.NewTratteriaController()
+	tratteriaController := tratteriacontroller.NewTratteriaController(logging.GetLogger("controller"))
 
 	if err := tratteriaController.Run(); err != nil {
 		logger.Fatal("Failed to start TraT Controller server.", zap.Error(err))
 	}
 
-	webSocketServer := websocketserver.NewWebSocketServer(tratteriaController.Controller, x509Source, spiffeid.ID(config.TratteriaSpiffeId), logger)
+	webSocketServer := websocketserver.NewWebSocketServer(tratteriaController.Controller, x509Source, spiffeid.ID(config.TratteriaSpiffeId), logging.GetLogger("websocketserver"))
 
 	tratteriaController.SetClientsRetriever(webSocketServer)
 
@@ -87,7 +83,7 @@ func main() {
 			AgentInterceptorPort:   int(config.AgentInterceptorPort),
 			SpireAgentHostDir:      config.SpireAgentHostDir,
 			TconfigdSpiffeId:       tconfigdSpiffeId,
-			Logger:                 logger,
+			Logger:                 logging.GetLogger("webhook"),
 		}
 
 		if err := webhook.Run(); err != nil {

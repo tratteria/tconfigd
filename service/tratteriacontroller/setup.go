@@ -1,17 +1,16 @@
 package tratteriacontroller
 
 import (
-	"flag"
 	"fmt"
 	"time"
 
 	"github.com/tratteria/tconfigd/ruledispatcher"
+	"go.uber.org/zap"
 
 	"github.com/tratteria/tconfigd/tratteriacontroller/pkg/signals"
 	"github.com/tratteria/tconfigd/websocketserver"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/klog/v2"
 
 	"github.com/tratteria/tconfigd/tratteriacontroller/controller"
 	clientset "github.com/tratteria/tconfigd/tratteriacontroller/pkg/generated/clientset/versioned"
@@ -21,11 +20,13 @@ import (
 type TratteriaController struct {
 	RuleDispatcher *ruledispatcher.RuleDispatcher
 	Controller     *controller.Controller
+	Logger         *zap.Logger
 }
 
-func NewTratteriaController() *TratteriaController {
+func NewTratteriaController(logger *zap.Logger) *TratteriaController {
 	return &TratteriaController{
 		RuleDispatcher: ruledispatcher.NewRuleDispatcher(),
+		Logger:         logger,
 	}
 }
 
@@ -34,11 +35,6 @@ func (tc *TratteriaController) SetClientsRetriever(clientsRetriever websocketser
 }
 
 func (tc *TratteriaController) Run() error {
-	klog.InitFlags(nil)
-	defer klog.Flush()
-
-	flag.Parse()
-
 	ctx := signals.SetupSignalHandler()
 
 	cfg, err := rest.InClusterConfig()
@@ -60,15 +56,15 @@ func (tc *TratteriaController) Run() error {
 	tratInformer := tratteriaInformerFactory.Tratteria().V1alpha1().TraTs()
 	tratteriaConfigInformer := tratteriaInformerFactory.Tratteria().V1alpha1().TratteriaConfigs()
 
-	tc.Controller = controller.NewController(ctx, kubeClient, tratteriaClient, tratInformer, tratteriaConfigInformer, tc.RuleDispatcher)
+	tc.Controller = controller.NewController(ctx, kubeClient, tratteriaClient, tratInformer, tratteriaConfigInformer, tc.RuleDispatcher, tc.Logger)
 
 	go func() {
-		klog.Info("Starting TraT Controller...")
+		tc.Logger.Info("Starting TraT Controller...")
 
 		tratteriaInformerFactory.Start(ctx.Done())
 
 		if err := tc.Controller.Run(ctx, 2); err != nil {
-			klog.Errorf("error running controller: %v", err)
+			tc.Logger.Error("Error running controller.", zap.Error(err))
 		}
 	}()
 
