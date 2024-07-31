@@ -66,7 +66,7 @@ func main() {
 		logger.Fatal("Failed to start TraT Controller server.", zap.Error(err))
 	}
 
-	webSocketServer := websocketserver.NewWebSocketServer(tratteriaController.Controller, x509Source, spiffeid.ID(config.TratteriaSpiffeId), logging.GetLogger("websocketserver"))
+	webSocketServer := websocketserver.NewWebSocketServer(tratteriaController.Controller, x509Source, spiffeid.ID(config.TratteriaSpiffeId), logging.GetLogger("websocket-server"))
 
 	tratteriaController.SetClientsRetriever(webSocketServer)
 
