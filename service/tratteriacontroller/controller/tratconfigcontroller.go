@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 
+	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/klog/v2"
 
 	tratteria1alpha1 "github.com/tratteria/tconfigd/tratteriacontroller/pkg/apis/tratteria/v1alpha1"
 )
@@ -132,7 +132,7 @@ func (c *Controller) updateSuccessTratteriaConfigStatus(ctx context.Context, tra
 func (c *Controller) GetActiveTratteriaConfigVerificationRule(namespace string) (*tratteria1alpha1.TratteriaConfigVerificationRule, error) {
 	tratteriaConfigs, err := c.tratteriaConfigsLister.TratteriaConfigs(namespace).List(labels.Everything())
 	if err != nil {
-		klog.Error("Failed to list TratteriaConfigs in namespace:", namespace, err)
+		c.logger.Error("Failed to list TratteriaConfigs in namespace.", zap.String("namespace", namespace), zap.Error(err))
 
 		return nil, err
 	}
@@ -152,7 +152,7 @@ func (c *Controller) GetActiveTratteriaConfigVerificationRule(namespace string) 
 func (c *Controller) GetActiveGenerationTokenRule(namespace string) (*tratteria1alpha1.TratteriaConfigGenerationRule, error) {
 	tratteriaConfigs, err := c.tratteriaConfigsLister.TratteriaConfigs(namespace).List(labels.Everything())
 	if err != nil {
-		klog.Error("Failed to list TratteriaConfigs in namespace:", namespace, err)
+		c.logger.Error("Failed to list TratteriaConfigs in namespace.", zap.String("namespace", namespace), zap.Error(err))
 
 		return nil, err
 	}

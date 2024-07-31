@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"go.uber.org/zap"
 	"golang.org/x/time/rate"
 
 	"github.com/tratteria/tconfigd/common"
@@ -23,7 +24,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
-	"k8s.io/klog/v2"
 
 	tratteria1alpha1 "github.com/tratteria/tconfigd/tratteriacontroller/pkg/apis/tratteria/v1alpha1"
 	clientset "github.com/tratteria/tconfigd/tratteriacontroller/pkg/generated/clientset/versioned"
@@ -92,6 +92,7 @@ type Controller struct {
 	ruleDispatcher         *ruledispatcher.RuleDispatcher
 	ruleVersionNumber      int64
 	allRulesHashes         *AllRulesHashes
+	logger                 *zap.Logger
 }
 
 func NewController(
@@ -100,12 +101,12 @@ func NewController(
 	tratteriaclientset clientset.Interface,
 	traTInformer informers.TraTInformer,
 	tratteriaConfigInformer informers.TratteriaConfigInformer,
-	ruleDispatcher *ruledispatcher.RuleDispatcher) *Controller {
-	logger := klog.FromContext(ctx)
+	ruleDispatcher *ruledispatcher.RuleDispatcher,
+	logger *zap.Logger) *Controller {
 
 	utilruntime.Must(tratteriascheme.AddToScheme(scheme.Scheme))
 
-	logger.V(4).Info("Creating event broadcaster")
+	logger.Info("Creating event broadcaster")
 
 	eventBroadcaster := record.NewBroadcaster(record.WithContext(ctx))
 
@@ -130,6 +131,7 @@ func NewController(
 		ruleDispatcher:         ruleDispatcher,
 		ruleVersionNumber:      0,
 		allRulesHashes:         NewAllRulesHashes(),
+		logger:                 logger,
 	}
 
 	logger.Info("Setting up event handlers")
@@ -177,32 +179,33 @@ func (c *Controller) enqueueObject(obj interface{}, versionNumber int64) {
 
 	c.workqueue.Add(fmt.Sprintf("%s/%s/%d", resourceType, key, versionNumber))
 
-	klog.V(4).Infof("Enqueued %s '%s' with new rule version %d", resourceType, key, versionNumber)
+	c.logger.Info("Enqueued resource with new rule version.",
+		zap.String("resource-type", resourceType),
+		zap.String("key", key),
+		zap.Int64("version-number", versionNumber))
 }
 
 func (c *Controller) Run(ctx context.Context, workers int) error {
 	defer utilruntime.HandleCrash()
 	defer c.workqueue.ShutDown()
 
-	logger := klog.FromContext(ctx)
+	c.logger.Info("Starting TraT controller")
 
-	logger.Info("Starting TraT controller")
-
-	logger.Info("Waiting for informer caches to sync")
+	c.logger.Info("Waiting for informer caches to sync")
 
 	if ok := cache.WaitForCacheSync(ctx.Done(), c.traTsSynced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
 
-	logger.Info("Starting workers", "count", workers)
+	c.logger.Info("Starting workers", zap.Int("count", workers))
 
 	for i := 0; i < workers; i++ {
 		go wait.UntilWithContext(ctx, c.runWorker, time.Second)
 	}
 
-	logger.Info("Started workers")
+	c.logger.Info("Started workers")
 	<-ctx.Done()
-	logger.Info("Shutting down workers")
+	c.logger.Info("Shutting down workers")
 
 	return nil
 }
@@ -214,7 +217,6 @@ func (c *Controller) runWorker(ctx context.Context) {
 
 func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	obj, shutdown := c.workqueue.Get()
-	logger := klog.FromContext(ctx)
 
 	if shutdown {
 		return false
@@ -231,7 +233,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 
 		c.workqueue.Forget(obj)
 
-		logger.Info("Successfully applied", "resourceName", obj)
+		c.logger.Info("Successfully applied.", zap.String("resourceName", obj))
 
 		return nil
 	}()

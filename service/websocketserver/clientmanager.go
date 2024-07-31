@@ -184,8 +184,6 @@ func (cm *ClientManager) compareAndReconcileRule(appData string) {
 		lateshHash, activeRuleVersionNumber, _ = cm.Server.ruleRetriever.GetActiveVerificationRulesHash(cm.Service, cm.Namespace)
 	}
 
-	cm.Server.Logger.Info("Central and remote hash", zap.String("central", lateshHash), zap.String("remote", pingData.RuleHash))
-
 	if lateshHash != pingData.RuleHash {
 		cm.Server.Logger.Warn("Received ping with incorrect rule hash, triggering reconciliation...",
 			zap.String("service", cm.Service),
