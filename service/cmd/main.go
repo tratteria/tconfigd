@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"log"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -27,23 +27,23 @@ func main() {
 
 	setupSignalHandler(cancel)
 
-	if len(os.Args) < 2 {
-		log.Fatalf("No configuration file provided. Please specify the configuration path as an argument when running the service.\nUsage: %s <config-path>", os.Args[0])
-	}
-
-	configPath := os.Args[1]
-
-	config, err := config.GetConfig(configPath)
-	if err != nil {
-		log.Fatal("Error reading configuration.", zap.Error(err))
-	}
-
 	if err := logging.InitLogger(); err != nil {
 		panic(err)
 	}
 	defer logging.Sync()
 
 	logger := logging.GetLogger("main")
+
+	if len(os.Args) < 2 {
+		logger.Fatal(fmt.Sprintf("No configuration file provided. Please specify the configuration path as an argument when running the service.\nUsage: %s <config-path>", os.Args[0]))
+	}
+
+	configPath := os.Args[1]
+
+	config, err := config.GetConfig(configPath)
+	if err != nil {
+		logger.Fatal("Error reading configuration.", zap.Error(err))
+	}
 
 	x509SrcCtx, cancel := context.WithTimeout(context.Background(), X509_SOURCE_TIMEOUT)
 	defer cancel()
