@@ -149,7 +149,7 @@ func (c *Controller) GetActiveTratteriaConfigVerificationRule(namespace string) 
 	return nil, nil
 }
 
-func (c *Controller) GetActiveGenerationTokenRule(namespace string) (*tratteria1alpha1.TratteriaConfigGenerationRule, error) {
+func (c *Controller) GetActiveTratteriaConfigGenerationRule(namespace string) (*tratteria1alpha1.TratteriaConfigGenerationRule, error) {
 	tratteriaConfigs, err := c.tratteriaConfigsLister.TratteriaConfigs(namespace).List(labels.Everything())
 	if err != nil {
 		c.logger.Error("Failed to list TratteriaConfigs in namespace.", zap.String("namespace", namespace), zap.Error(err))

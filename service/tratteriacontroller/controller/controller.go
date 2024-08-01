@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -137,11 +138,13 @@ func NewController(
 	logger.Info("Setting up event handlers")
 
 	traTInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: controller.AddFunc,
+		AddFunc:    controller.AddFunc,
+		UpdateFunc: controller.UpdateTraT,
 	})
 
 	tratteriaConfigInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: controller.AddFunc,
+		AddFunc:    controller.AddFunc,
+		UpdateFunc: controller.UpdateTratteriaConfig,
 	})
 
 	return controller
@@ -154,6 +157,52 @@ func (c *Controller) AddFunc(obj interface{}) {
 	// Enqueuing the version number to track which clients have already incorporated this change and which clients still
 	// need this change propagated
 	c.enqueueObject(obj, versionNumber)
+}
+
+func (c *Controller) UpdateTraT(oldObj, newObj interface{}) {
+	oldTraT, ok := oldObj.(*tratteria1alpha1.TraT)
+	if !ok {
+		c.logger.Error("Received unexpected object type", zap.String("expected", "TraT"), zap.Any("got", oldObj))
+
+		return
+	}
+
+	newTraT, ok := newObj.(*tratteria1alpha1.TraT)
+	if !ok {
+		c.logger.Error("Received unexpected object type", zap.String("expected", "TraT"), zap.Any("got", oldObj))
+
+		return
+	}
+
+	if !reflect.DeepEqual(oldTraT.Spec, newTraT.Spec) {
+		versionNumber := atomic.AddInt64(&c.ruleVersionNumber, 1)
+		c.enqueueObject(newObj, versionNumber)
+	} else {
+		c.logger.Debug("TraT update ignored, no spec change.", zap.String("namespace", newTraT.Namespace), zap.String("trat", newTraT.Name))
+	}
+}
+
+func (c *Controller) UpdateTratteriaConfig(oldObj, newObj interface{}) {
+	oldTratteriaConfig, ok := oldObj.(*tratteria1alpha1.TratteriaConfig)
+	if !ok {
+		c.logger.Error("Received unexpected object type", zap.String("expected", "TratteriaConfig"), zap.Any("got", oldObj))
+
+		return
+	}
+
+	newTratteriaConfig, ok := newObj.(*tratteria1alpha1.TratteriaConfig)
+	if !ok {
+		c.logger.Error("Received unexpected object type", zap.String("expected", "TratteriaConfig"), zap.Any("got", oldObj))
+
+		return
+	}
+
+	if !reflect.DeepEqual(oldTratteriaConfig.Spec, newTratteriaConfig.Spec) {
+		versionNumber := atomic.AddInt64(&c.ruleVersionNumber, 1)
+		c.enqueueObject(newObj, versionNumber)
+	} else {
+		c.logger.Debug("TratteriaConfig update ignored, no spec change.", zap.String("namespace", newTratteriaConfig.Namespace), zap.String("trat", newTratteriaConfig.Name))
+	}
 }
 
 func (c *Controller) enqueueObject(obj interface{}, versionNumber int64) {
@@ -286,14 +335,14 @@ func (c *Controller) GetActiveVerificationRules(serviceName string, namespace st
 		return nil, 0, err
 	}
 
-	traTVerificationRules, err := c.GetActiveTraTVerificationRules(serviceName, namespace)
+	traTVerificationRules, err := c.GetActiveTraTsVerificationRules(serviceName, namespace)
 	if err != nil {
 		return nil, 0, err
 	}
 
 	return &tratteria1alpha1.VerificationRules{
 			TratteriaConfigVerificationRule: tratteriaConfigVerificationRule,
-			TraTVerificationRules:           traTVerificationRules,
+			TraTsVerificationRules:          traTVerificationRules,
 		},
 		activeRuleVersionNumber,
 		nil
@@ -317,19 +366,19 @@ func (c *Controller) GetActiveGenerationRules(namespace string) (*tratteria1alph
 	// The returned rule is guaranteed to incorporate changes at least up to and including this rule version number
 	activeRuleVersionNumber := atomic.LoadInt64(&c.ruleVersionNumber)
 
-	generationTratteriaConfigRule, err := c.GetActiveGenerationTokenRule(namespace)
+	generationTratteriaConfigRule, err := c.GetActiveTratteriaConfigGenerationRule(namespace)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	generationTraTRules, err := c.GetActiveGenerationEndpointRules(namespace)
+	generationTraTRules, err := c.GetActiveTraTsGenerationRules(namespace)
 	if err != nil {
 		return nil, 0, err
 	}
 
 	return &tratteria1alpha1.GenerationRules{
 			TratteriaConfigGenerationRule: generationTratteriaConfigRule,
-			TraTGenerationRules:           generationTraTRules,
+			TraTsGenerationRules:          generationTraTRules,
 		},
 		activeRuleVersionNumber,
 		nil

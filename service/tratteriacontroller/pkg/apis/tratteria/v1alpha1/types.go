@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"sort"
 
 	"github.com/tratteria/tconfigd/tconfigderrors"
 	"github.com/tratteria/tconfigd/utils"
@@ -61,6 +60,7 @@ type TraTList struct {
 }
 
 type TraTVerificationRule struct {
+	TraTName   string     `json:"traTName"`
 	Endpoint   string     `json:"endpoint"`
 	Method     string     `json:"method"`
 	Purp       string     `json:"purp"`
@@ -68,6 +68,7 @@ type TraTVerificationRule struct {
 }
 
 type TraTGenerationRule struct {
+	TraTName   string     `json:"traTName"`
 	Endpoint   string     `json:"endpoint"`
 	Method     string     `json:"method"`
 	Purp       string     `json:"purp"`
@@ -92,6 +93,7 @@ func (traT *TraT) GetTraTVerificationRules() (map[string]*TraTVerificationRule, 
 		}
 
 		verificationRules[serviceSpec.Name] = &TraTVerificationRule{
+			TraTName:   traT.Name,
 			Endpoint:   endpoint,
 			Method:     traT.Spec.Method,
 			Purp:       traT.Spec.Purp,
@@ -111,6 +113,7 @@ func (traT *TraT) GetTraTGenerationRule() (*TraTGenerationRule, error) {
 	// TODO: do basic check and return err if failed
 
 	return &TraTGenerationRule{
+		TraTName:   traT.Name,
 		Endpoint:   traT.Spec.Endpoint,
 		Method:     traT.Spec.Method,
 		Purp:       traT.Spec.Purp,
@@ -210,52 +213,10 @@ func (tratteriaConfig *TratteriaConfig) GetTratteriaConfigGenerationRule() (*Tra
 
 type VerificationRules struct {
 	TratteriaConfigVerificationRule *TratteriaConfigVerificationRule `json:"tratteriaConfigVerificationRule"`
-	TraTVerificationRules           []*TraTVerificationRule          `json:"traTVerificationRules"`
+	TraTsVerificationRules          map[string]*TraTVerificationRule `json:"traTsVerificationRules"`
 }
 
 func (verificationRules *VerificationRules) ComputeStableHash() (string, error) {
-	var sortErr error
-
-	sort.SliceStable(verificationRules.TraTVerificationRules, func(i, j int) bool {
-		if sortErr != nil {
-			return false
-		}
-
-		iJSON, err := json.Marshal(verificationRules.TraTVerificationRules[i])
-		if err != nil {
-			sortErr = fmt.Errorf("failed to marshal rule %d: %w", i, err)
-
-			return false
-		}
-
-		jJSON, err := json.Marshal(verificationRules.TraTVerificationRules[j])
-		if err != nil {
-			sortErr = fmt.Errorf("failed to marshal rule %d: %w", j, err)
-
-			return false
-		}
-
-		iStr, err := utils.CanonicalizeJSON(json.RawMessage(iJSON))
-		if err != nil {
-			sortErr = fmt.Errorf("failed to canonicalize rule %d: %w", i, err)
-
-			return false
-		}
-
-		jStr, err := utils.CanonicalizeJSON(json.RawMessage(jJSON))
-		if err != nil {
-			sortErr = fmt.Errorf("failed to canonicalize rule %d: %w", j, err)
-
-			return false
-		}
-
-		return iStr < jStr
-	})
-
-	if sortErr != nil {
-		return "", fmt.Errorf("error during sorting: %w", sortErr)
-	}
-
 	data, err := json.Marshal(verificationRules)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal rules: %w", err)
@@ -280,52 +241,10 @@ func (verificationRules *VerificationRules) ComputeStableHash() (string, error) 
 
 type GenerationRules struct {
 	TratteriaConfigGenerationRule *TratteriaConfigGenerationRule `json:"tratteriaConfigGenerationRule"`
-	TraTGenerationRules           []*TraTGenerationRule          `json:"traTGenerationRules"`
+	TraTsGenerationRules          map[string]*TraTGenerationRule `json:"traTsGenerationRules"`
 }
 
 func (generationRules *GenerationRules) ComputeStableHash() (string, error) {
-	var sortErr error
-
-	sort.SliceStable(generationRules.TraTGenerationRules, func(i, j int) bool {
-		if sortErr != nil {
-			return false
-		}
-
-		iJSON, err := json.Marshal(generationRules.TraTGenerationRules[i])
-		if err != nil {
-			sortErr = fmt.Errorf("failed to marshal rule %d: %w", i, err)
-
-			return false
-		}
-
-		jJSON, err := json.Marshal(generationRules.TraTGenerationRules[j])
-		if err != nil {
-			sortErr = fmt.Errorf("failed to marshal rule %d: %w", j, err)
-
-			return false
-		}
-
-		iStr, err := utils.CanonicalizeJSON(json.RawMessage(iJSON))
-		if err != nil {
-			sortErr = fmt.Errorf("failed to canonicalize rule %d: %w", i, err)
-
-			return false
-		}
-
-		jStr, err := utils.CanonicalizeJSON(json.RawMessage(jJSON))
-		if err != nil {
-			sortErr = fmt.Errorf("failed to canonicalize rule %d: %w", j, err)
-
-			return false
-		}
-
-		return iStr < jStr
-	})
-
-	if sortErr != nil {
-		return "", fmt.Errorf("error during sorting: %w", sortErr)
-	}
-
 	data, err := json.Marshal(generationRules)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal rules: %w", err)

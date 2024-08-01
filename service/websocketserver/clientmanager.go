@@ -187,9 +187,7 @@ func (cm *ClientManager) compareAndReconcileRule(appData string) {
 	if lateshHash != pingData.RuleHash {
 		cm.Server.Logger.Warn("Received ping with incorrect rule hash, triggering reconciliation...",
 			zap.String("service", cm.Service),
-			zap.String("namespace", cm.Namespace),
-			zap.String("central-hash", lateshHash),
-			zap.String("remote-hash", pingData.RuleHash))
+			zap.String("namespace", cm.Namespace))
 
 		err := cm.reconcileRules()
 		if err != nil {
