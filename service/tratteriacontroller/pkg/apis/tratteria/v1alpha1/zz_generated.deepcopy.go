@@ -105,15 +105,19 @@ func (in *GenerationRules) DeepCopyInto(out *GenerationRules) {
 		*out = new(TratteriaConfigGenerationRule)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.TraTGenerationRules != nil {
-		in, out := &in.TraTGenerationRules, &out.TraTGenerationRules
-		*out = make([]*TraTGenerationRule, len(*in))
-		for i := range *in {
-			if (*in)[i] != nil {
-				in, out := &(*in)[i], &(*out)[i]
+	if in.TraTsGenerationRules != nil {
+		in, out := &in.TraTsGenerationRules, &out.TraTsGenerationRules
+		*out = make(map[string]*TraTGenerationRule, len(*in))
+		for key, val := range *in {
+			var outVal *TraTGenerationRule
+			if val == nil {
+				(*out)[key] = nil
+			} else {
+				in, out := &val, &outVal
 				*out = new(TraTGenerationRule)
 				(*in).DeepCopyInto(*out)
 			}
+			(*out)[key] = outVal
 		}
 	}
 	return
@@ -528,15 +532,19 @@ func (in *VerificationRules) DeepCopyInto(out *VerificationRules) {
 		*out = new(TratteriaConfigVerificationRule)
 		**out = **in
 	}
-	if in.TraTVerificationRules != nil {
-		in, out := &in.TraTVerificationRules, &out.TraTVerificationRules
-		*out = make([]*TraTVerificationRule, len(*in))
-		for i := range *in {
-			if (*in)[i] != nil {
-				in, out := &(*in)[i], &(*out)[i]
+	if in.TraTsVerificationRules != nil {
+		in, out := &in.TraTsVerificationRules, &out.TraTsVerificationRules
+		*out = make(map[string]*TraTVerificationRule, len(*in))
+		for key, val := range *in {
+			var outVal *TraTVerificationRule
+			if val == nil {
+				(*out)[key] = nil
+			} else {
+				in, out := &val, &outVal
 				*out = new(TraTVerificationRule)
 				(*in).DeepCopyInto(*out)
 			}
+			(*out)[key] = outVal
 		}
 	}
 	return

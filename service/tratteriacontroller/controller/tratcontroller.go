@@ -132,7 +132,7 @@ func (c *Controller) updateSuccessTratStatus(ctx context.Context, trat *tratteri
 	return updateErr
 }
 
-func (c *Controller) GetActiveTraTVerificationRules(serviceName string, namespace string) ([]*tratteria1alpha1.TraTVerificationRule, error) {
+func (c *Controller) GetActiveTraTsVerificationRules(serviceName string, namespace string) (map[string]*tratteria1alpha1.TraTVerificationRule, error) {
 	traTs, err := c.traTsLister.TraTs(namespace).List(labels.Everything())
 	if err != nil {
 		c.logger.Error("Failed to list TraTs in namespace.", zap.String("namespace", namespace), zap.Error(err))
@@ -140,22 +140,22 @@ func (c *Controller) GetActiveTraTVerificationRules(serviceName string, namespac
 		return nil, err
 	}
 
-	var endpointVerificationRules []*tratteria1alpha1.TraTVerificationRule
+	traTsVerificationRules := make(map[string]*tratteria1alpha1.TraTVerificationRule)
 
-	for _, trat := range traTs {
-		endpointVerificationRule, err := trat.GetTraTVerificationRules()
+	for _, traT := range traTs {
+		traTVerificationRule, err := traT.GetTraTVerificationRules()
 		if err != nil {
 			return nil, err
 		}
-		if serviceEndpointVerificationRule := endpointVerificationRule[serviceName]; serviceEndpointVerificationRule != nil {
-			endpointVerificationRules = append(endpointVerificationRules, serviceEndpointVerificationRule)
+		if serviceTraTVerificationRule := traTVerificationRule[serviceName]; serviceTraTVerificationRule != nil {
+			traTsVerificationRules[traT.Name] = serviceTraTVerificationRule
 		}
 	}
 
-	return endpointVerificationRules, nil
+	return traTsVerificationRules, nil
 }
 
-func (c *Controller) GetActiveGenerationEndpointRules(namespace string) ([]*tratteria1alpha1.TraTGenerationRule, error) {
+func (c *Controller) GetActiveTraTsGenerationRules(namespace string) (map[string]*tratteria1alpha1.TraTGenerationRule, error) {
 	traTs, err := c.traTsLister.TraTs(namespace).List(labels.Everything())
 	if err != nil {
 		c.logger.Error("Failed to list TraTs in namespace.", zap.String("namespace", namespace), zap.Error(err))
@@ -163,15 +163,16 @@ func (c *Controller) GetActiveGenerationEndpointRules(namespace string) ([]*trat
 		return nil, err
 	}
 
-	var endpointGenerationRules []*tratteria1alpha1.TraTGenerationRule
+	traTsGenerationRules := make(map[string]*tratteria1alpha1.TraTGenerationRule)
 
-	for _, trat := range traTs {
-		endpointGenerationRule, err := trat.GetTraTGenerationRule()
+	for _, traT := range traTs {
+		traTGenerationRule, err := traT.GetTraTGenerationRule()
 		if err != nil {
 			return nil, err
 		}
-		endpointGenerationRules = append(endpointGenerationRules, endpointGenerationRule)
+
+		traTsGenerationRules[traT.Name] = traTGenerationRule
 	}
 
-	return endpointGenerationRules, nil
+	return traTsGenerationRules, nil
 }
