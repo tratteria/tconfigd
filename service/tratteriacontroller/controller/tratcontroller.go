@@ -6,43 +6,22 @@ import (
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/client-go/tools/cache"
 
+	"github.com/tratteria/tconfigd/common"
 	tratteria1alpha1 "github.com/tratteria/tconfigd/tratteriacontroller/pkg/apis/tratteria/v1alpha1"
 )
 
-func (c *Controller) handleTraT(ctx context.Context, key string, versionNumber int64) error {
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
-
+func (c *Controller) handleTraTUpsert(ctx context.Context, newTraT *tratteria1alpha1.TraT, versionNumber int64) error {
+	verificationEndpointRules, err := newTraT.GetTraTVerificationRules()
 	if err != nil {
-		utilruntime.HandleError(fmt.Errorf("invalid resource key: %s", key))
+		messagedErr := fmt.Errorf("error retrieving verification rules from %s trat: %w", newTraT.Name, err)
 
-		return nil
-	}
+		c.recorder.Event(newTraT, corev1.EventTypeWarning, "error", messagedErr.Error())
 
-	trat, err := c.traTsLister.TraTs(namespace).Get(name)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			utilruntime.HandleError(fmt.Errorf("trat '%s' in work queue no longer exists", key))
-
-			return nil
-		}
-
-		return err
-	}
-
-	verificationEndpointRules, err := trat.GetTraTVerificationRules()
-	if err != nil {
-		messagedErr := fmt.Errorf("error retrieving verification rules from %s trat: %w", name, err)
-
-		c.recorder.Event(trat, corev1.EventTypeWarning, "error", messagedErr.Error())
-
-		if updateErr := c.updateErrorTraTStatus(ctx, trat, VerificationApplicationStage, err); updateErr != nil {
-			return fmt.Errorf("failed to update error status for %s trat: %w", name, updateErr)
+		if updateErr := c.updateErrorTraTStatus(ctx, newTraT, VerificationApplicationStage, err); updateErr != nil {
+			return fmt.Errorf("failed to update error status for %s trat: %w", newTraT.Name, updateErr)
 		}
 
 		return messagedErr
@@ -50,53 +29,103 @@ func (c *Controller) handleTraT(ctx context.Context, key string, versionNumber i
 
 	// TODO: Implement parallel dispatching of rules using goroutines
 	for service, serviceVerificationRule := range verificationEndpointRules {
-		err := c.ruleDispatcher.DispatchTraTVerificationRule(ctx, service, namespace, serviceVerificationRule, versionNumber)
+		err := c.serviceMessageHandler.DispatchTraTVerificationRule(ctx, service, newTraT.Namespace, serviceVerificationRule, versionNumber)
 		if err != nil {
-			messagedErr := fmt.Errorf("error dispatching %s trat verification rule to %s service: %w", name, service, err)
+			messagedErr := fmt.Errorf("error dispatching %s trat verification rule to %s service: %w", newTraT.Name, service, err)
 
-			c.recorder.Event(trat, corev1.EventTypeWarning, "error", messagedErr.Error())
+			c.recorder.Event(newTraT, corev1.EventTypeWarning, "error", messagedErr.Error())
 
-			if updateErr := c.updateErrorTraTStatus(ctx, trat, VerificationApplicationStage, err); updateErr != nil {
-				return fmt.Errorf("failed to update error status for %s trat: %w", name, updateErr)
+			if updateErr := c.updateErrorTraTStatus(ctx, newTraT, VerificationApplicationStage, err); updateErr != nil {
+				return fmt.Errorf("failed to update error status for %s trat: %w", newTraT.Name, updateErr)
 			}
 
 			return messagedErr
 		}
 	}
 
-	c.recorder.Event(trat, corev1.EventTypeNormal, string(VerificationApplicationStage)+" successful", string(VerificationApplicationStage)+" completed successfully")
+	c.recorder.Event(newTraT, corev1.EventTypeNormal, string(VerificationApplicationStage)+" successful", string(VerificationApplicationStage)+" completed successfully")
 
-	generationEndpointRule, err := trat.GetTraTGenerationRule()
+	generationEndpointRule, err := newTraT.GetTraTGenerationRule()
 	if err != nil {
-		messagedErr := fmt.Errorf("error retrieving generation rules from %s trat: %w", name, err)
+		messagedErr := fmt.Errorf("error retrieving generation rules from %s trat: %w", newTraT.Name, err)
 
-		c.recorder.Event(trat, corev1.EventTypeWarning, "error", messagedErr.Error())
+		c.recorder.Event(newTraT, corev1.EventTypeWarning, "error", messagedErr.Error())
 
-		if updateErr := c.updateErrorTraTStatus(ctx, trat, GenerationApplicationStage, err); updateErr != nil {
-			return fmt.Errorf("failed to update error status for %s trat: %w", name, updateErr)
+		if updateErr := c.updateErrorTraTStatus(ctx, newTraT, GenerationApplicationStage, err); updateErr != nil {
+			return fmt.Errorf("failed to update error status for %s trat: %w", newTraT.Name, updateErr)
 		}
 
 		return messagedErr
 	}
 
-	err = c.ruleDispatcher.DispatchTraTGenerationRule(ctx, namespace, generationEndpointRule, versionNumber)
+	err = c.serviceMessageHandler.DispatchTraTGenerationRule(ctx, newTraT.Namespace, generationEndpointRule, versionNumber)
 	if err != nil {
-		messagedErr := fmt.Errorf("error dispatching %s trat generation rule: %w", name, err)
+		messagedErr := fmt.Errorf("error dispatching %s trat generation rule: %w", newTraT.Name, err)
 
-		c.recorder.Event(trat, corev1.EventTypeWarning, "error", messagedErr.Error())
+		c.recorder.Event(newTraT, corev1.EventTypeWarning, "error", messagedErr.Error())
 
-		if updateErr := c.updateErrorTraTStatus(ctx, trat, GenerationApplicationStage, err); updateErr != nil {
-			return fmt.Errorf("failed to update error status for %s trat: %w", name, updateErr)
+		if updateErr := c.updateErrorTraTStatus(ctx, newTraT, GenerationApplicationStage, err); updateErr != nil {
+			return fmt.Errorf("failed to update error status for %s trat: %w", newTraT.Name, updateErr)
 		}
 
 		return messagedErr
 	}
 
-	if updateErr := c.updateSuccessTratStatus(ctx, trat); updateErr != nil {
-		return fmt.Errorf("failed to update success status for %s trat: %w", name, updateErr)
+	if updateErr := c.updateSuccessTratStatus(ctx, newTraT); updateErr != nil {
+		return fmt.Errorf("failed to update success status for %s trat: %w", newTraT.Name, updateErr)
 	}
 
-	c.recorder.Event(trat, corev1.EventTypeNormal, string(GenerationApplicationStage)+" successful", string(GenerationApplicationStage)+" completed successfully")
+	c.recorder.Event(newTraT, corev1.EventTypeNormal, string(GenerationApplicationStage)+" successful", string(GenerationApplicationStage)+" completed successfully")
+
+	return nil
+}
+
+func (c *Controller) handleTraTUpdation(ctx context.Context, newTraT *tratteria1alpha1.TraT, oldTraT *tratteria1alpha1.TraT, versionNumber int64) error {
+	// First, handle any service removals from the TraT
+	newServices := make(map[string]bool)
+	for _, serviceSpec := range newTraT.Spec.Services {
+		newServices[serviceSpec.Name] = true
+	}
+
+	for _, oldServiceSpec := range oldTraT.Spec.Services {
+		if !newServices[oldServiceSpec.Name] {
+			// Service was removed, so remove the TraT from it
+			err := c.serviceMessageHandler.DeleteTraT(ctx, oldServiceSpec.Name, oldTraT.Namespace, oldTraT.Name, versionNumber)
+			if err != nil {
+				messagedErr := fmt.Errorf("error deleting %s trat from %s service: %w", oldTraT.Name, oldServiceSpec.Name, err)
+
+				c.recorder.Event(newTraT, corev1.EventTypeWarning, "error", messagedErr.Error())
+
+				if updateErr := c.updateErrorTraTStatus(ctx, newTraT, VerificationApplicationStage, err); updateErr != nil {
+					return fmt.Errorf("failed to update error status for %s trat: %w", newTraT.Name, updateErr)
+				}
+
+				return messagedErr
+			}
+		}
+	}
+
+	// Now handle additions and updates
+	return c.handleTraTUpsert(ctx, newTraT, versionNumber)
+}
+
+func (c *Controller) handleTraTDeletion(ctx context.Context, oldTraT *tratteria1alpha1.TraT, versionNumber int64) error {
+	// TODO: Implement parallel requests using goroutines
+	for _, serviceSpec := range oldTraT.Spec.Services {
+		err := c.serviceMessageHandler.DeleteTraT(ctx, serviceSpec.Name, oldTraT.Namespace, oldTraT.Name, versionNumber)
+		if err != nil {
+			messagedErr := fmt.Errorf("error deleting %s trat from %s service: %w", oldTraT.Name, serviceSpec.Name, err)
+
+			return messagedErr
+		}
+	}
+
+	err := c.serviceMessageHandler.DeleteTraT(ctx, common.TRATTERIA_SERVICE_NAME, oldTraT.Namespace, oldTraT.Name, versionNumber)
+	if err != nil {
+		messagedErr := fmt.Errorf("error deleting %s trat from %s service: %w", oldTraT.Name, common.TRATTERIA_SERVICE_NAME, err)
+
+		return messagedErr
+	}
 
 	return nil
 }

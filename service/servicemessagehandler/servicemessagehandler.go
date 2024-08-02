@@ -1,4 +1,4 @@
-package ruledispatcher
+package servicemessagehandler
 
 import (
 	"context"
@@ -12,20 +12,24 @@ import (
 	"github.com/tratteria/tconfigd/websocketserver"
 )
 
-type RuleDispatcher struct {
+type ServiceMessageHandler struct {
 	clientsRetriever websocketserver.ClientsRetriever
 }
 
-func NewRuleDispatcher() *RuleDispatcher {
-	return &RuleDispatcher{}
+func NewServiceMessageHandler() *ServiceMessageHandler {
+	return &ServiceMessageHandler{}
 }
 
-func (rd *RuleDispatcher) SetClientsRetriever(clientsRetriever websocketserver.ClientsRetriever) {
+type TraTDeletionRequestMessage struct {
+	TraTName string
+}
+
+func (rd *ServiceMessageHandler) SetClientsRetriever(clientsRetriever websocketserver.ClientsRetriever) {
 	rd.clientsRetriever = clientsRetriever
 }
 
 //nolint:unparam
-func (rd *RuleDispatcher) dispatchRule(ctx context.Context, serviceName string, namespace string, messageType websocketserver.MessageType, rule json.RawMessage, versionNumber int64) error {
+func (rd *ServiceMessageHandler) sendMessage(ctx context.Context, serviceName string, namespace string, messageType websocketserver.MessageType, rule json.RawMessage, versionNumber int64) error {
 	clients := rd.clientsRetriever.GetClientManagers(serviceName, namespace)
 
 	var dispatchErrors []string
@@ -59,13 +63,13 @@ func (rd *RuleDispatcher) dispatchRule(ctx context.Context, serviceName string, 
 	return nil
 }
 
-func (rd *RuleDispatcher) DispatchTraTVerificationRule(ctx context.Context, serviceName string, namespace string, verificationEndpointRule *v1alpha1.TraTVerificationRule, versionNumber int64) error {
+func (rd *ServiceMessageHandler) DispatchTraTVerificationRule(ctx context.Context, serviceName string, namespace string, verificationEndpointRule *v1alpha1.TraTVerificationRule, versionNumber int64) error {
 	jsonData, err := json.Marshal(verificationEndpointRule)
 	if err != nil {
 		return fmt.Errorf("error marshaling verification trat rule: %w", err)
 	}
 
-	err = rd.dispatchRule(ctx, serviceName, namespace, websocketserver.MessageTypeTraTVerificationRuleUpsertRequest, jsonData, versionNumber)
+	err = rd.sendMessage(ctx, serviceName, namespace, websocketserver.MessageTypeTraTVerificationRuleUpsertRequest, jsonData, versionNumber)
 	if err != nil {
 		return fmt.Errorf("error dispatching verification trat rule to %s service: %w", serviceName, err)
 	}
@@ -73,7 +77,23 @@ func (rd *RuleDispatcher) DispatchTraTVerificationRule(ctx context.Context, serv
 	return nil
 }
 
-func (rd *RuleDispatcher) DispatchTratteriaConfigVerificationRule(ctx context.Context, namespace string, verificationTokenRule *v1alpha1.TratteriaConfigVerificationRule, versionNumber int64) error {
+func (rd *ServiceMessageHandler) DeleteTraT(ctx context.Context, serviceName string, namespace string, traTName string, versionNumber int64) error {
+	traTDeletionRequestMessage := TraTDeletionRequestMessage{TraTName: traTName}
+
+	jsonData, err := json.Marshal(traTDeletionRequestMessage)
+	if err != nil {
+		return fmt.Errorf("error marshaling verification trat rule: %w", err)
+	}
+
+	err = rd.sendMessage(ctx, serviceName, namespace, websocketserver.MessageTypeTraTDeletionRequest, jsonData, versionNumber)
+	if err != nil {
+		return fmt.Errorf("error deleting trat from %s service: %w", serviceName, err)
+	}
+
+	return nil
+}
+
+func (rd *ServiceMessageHandler) DispatchTratteriaConfigVerificationRule(ctx context.Context, namespace string, verificationTokenRule *v1alpha1.TratteriaConfigVerificationRule, versionNumber int64) error {
 	jsonData, err := json.Marshal(verificationTokenRule)
 	if err != nil {
 		return fmt.Errorf("error marshaling verification tratteria config rule: %w", err)
@@ -82,7 +102,7 @@ func (rd *RuleDispatcher) DispatchTratteriaConfigVerificationRule(ctx context.Co
 	var dispatchErrors []string
 
 	for _, serviceName := range rd.clientsRetriever.GetTratteriaAgentServices(namespace) {
-		err = rd.dispatchRule(ctx, serviceName, namespace, websocketserver.MessageTypeTratteriaConfigVerificationRuleUpsertRequest, jsonData, versionNumber)
+		err = rd.sendMessage(ctx, serviceName, namespace, websocketserver.MessageTypeTratteriaConfigVerificationRuleUpsertRequest, jsonData, versionNumber)
 		if err != nil {
 			dispatchErrors = append(dispatchErrors, fmt.Sprintf("error dispatching verification token rule to %s service: %v", serviceName, err))
 		}
@@ -95,13 +115,13 @@ func (rd *RuleDispatcher) DispatchTratteriaConfigVerificationRule(ctx context.Co
 	return nil
 }
 
-func (rd *RuleDispatcher) DispatchTraTGenerationRule(ctx context.Context, namespace string, generationEndpointRule *v1alpha1.TraTGenerationRule, verisionNumber int64) error {
+func (rd *ServiceMessageHandler) DispatchTraTGenerationRule(ctx context.Context, namespace string, generationEndpointRule *v1alpha1.TraTGenerationRule, verisionNumber int64) error {
 	jsonData, err := json.Marshal(generationEndpointRule)
 	if err != nil {
 		return fmt.Errorf("error marshaling generation trat rule: %w", err)
 	}
 
-	err = rd.dispatchRule(ctx, common.TRATTERIA_SERVICE_NAME, namespace, websocketserver.MessageTypeTraTGenerationRuleUpsertRequest, jsonData, verisionNumber)
+	err = rd.sendMessage(ctx, common.TRATTERIA_SERVICE_NAME, namespace, websocketserver.MessageTypeTraTGenerationRuleUpsertRequest, jsonData, verisionNumber)
 	if err != nil {
 		return fmt.Errorf("error dispatching generation trat rule to tratteria: %w", err)
 	}
@@ -109,13 +129,13 @@ func (rd *RuleDispatcher) DispatchTraTGenerationRule(ctx context.Context, namesp
 	return nil
 }
 
-func (rd *RuleDispatcher) DispatchTratteriaConfigGenerationRule(ctx context.Context, namespace string, generationTokenRule *v1alpha1.TratteriaConfigGenerationRule, versionNumber int64) error {
+func (rd *ServiceMessageHandler) DispatchTratteriaConfigGenerationRule(ctx context.Context, namespace string, generationTokenRule *v1alpha1.TratteriaConfigGenerationRule, versionNumber int64) error {
 	jsonData, err := json.Marshal(generationTokenRule)
 	if err != nil {
 		return fmt.Errorf("error marshaling generation tratteria config rule: %w", err)
 	}
 
-	err = rd.dispatchRule(ctx, common.TRATTERIA_SERVICE_NAME, namespace, websocketserver.MessageTypeTratteriaConfigGenerationRuleUpsertRequest, jsonData, versionNumber)
+	err = rd.sendMessage(ctx, common.TRATTERIA_SERVICE_NAME, namespace, websocketserver.MessageTypeTratteriaConfigGenerationRuleUpsertRequest, jsonData, versionNumber)
 	if err != nil {
 		return fmt.Errorf("error dispatching generation tratteria config rule to tratteria: %w", err)
 	}
