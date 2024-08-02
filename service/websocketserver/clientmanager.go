@@ -73,6 +73,8 @@ const (
 	MessageTypeTratteriaConfigGenerationRuleUpsertResponse   MessageType = "TRATTERIA_CONFIG_GENERATION_RULE_UPSERT_RESPONSE"
 	MessageTypeRuleReconciliationRequest                     MessageType = "RULE_RECONCILIATION_REQUEST"
 	MessageTypeRuleReconciliationResponse                    MessageType = "RULE_RECONCILIATION_RESPONSE"
+	MessageTypeTraTDeletionRequest                           MessageType = "TRAT_DELETION_REQUEST"
+	MessageTypeTraTDeletionResponse                          MessageType = "TRAT_DELETION_RESPONSE"
 	MessageTypeUnknown                                       MessageType = "UNKNOWN"
 )
 
@@ -306,7 +308,8 @@ func (cm *ClientManager) handleMessage(message []byte) {
 		MessageTypeTratteriaConfigVerificationRuleUpsertResponse,
 		MessageTypeTratteriaConfigGenerationRuleUpsertResponse,
 		MessageTypeRuleReconciliationResponse,
-		MessageTypeGetJWKSResponse:
+		MessageTypeGetJWKSResponse,
+		MessageTypeTraTDeletionResponse:
 		cm.handleResponse(message)
 	default:
 		cm.Server.Logger.Info("Received unknown or unexpected message type", zap.String("type", string(temp.Type)))

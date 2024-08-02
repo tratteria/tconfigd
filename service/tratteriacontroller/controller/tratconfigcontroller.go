@@ -6,94 +6,72 @@ import (
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/client-go/tools/cache"
 
 	tratteria1alpha1 "github.com/tratteria/tconfigd/tratteriacontroller/pkg/apis/tratteria/v1alpha1"
 )
 
-func (c *Controller) handleTratteriaConfig(ctx context.Context, key string, versionNumber int64) error {
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
-
+func (c *Controller) handleTratteriaConfigUpsert(ctx context.Context, newTratteriaConfig *tratteria1alpha1.TratteriaConfig, versionNumber int64) error {
+	verificationTokenRule, err := newTratteriaConfig.GetTratteriaConfigVerificationRule()
 	if err != nil {
-		utilruntime.HandleError(fmt.Errorf("invalid resource key: %s", key))
+		messagedErr := fmt.Errorf("error retrieving verification token rule from %s tratteria config: %w", newTratteriaConfig.Name, err)
 
-		return nil
-	}
+		c.recorder.Event(newTratteriaConfig, corev1.EventTypeWarning, "error", messagedErr.Error())
 
-	tratteriaConfig, err := c.tratteriaConfigsLister.TratteriaConfigs(namespace).Get(name)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			utilruntime.HandleError(fmt.Errorf("tratteria config '%s' in work queue no longer exists", key))
-
-			return nil
-		}
-
-		return err
-	}
-
-	verificationTokenRule, err := tratteriaConfig.GetTratteriaConfigVerificationRule()
-	if err != nil {
-		messagedErr := fmt.Errorf("error retrieving verification token rule from %s tratteria config: %w", name, err)
-
-		c.recorder.Event(tratteriaConfig, corev1.EventTypeWarning, "error", messagedErr.Error())
-
-		if updateErr := c.updateErrorTratteriaConfigStatus(ctx, tratteriaConfig, VerificationApplicationStage, err); updateErr != nil {
-			return fmt.Errorf("failed to update error status for %s tratteria config: %w", name, updateErr)
+		if updateErr := c.updateErrorTratteriaConfigStatus(ctx, newTratteriaConfig, VerificationApplicationStage, err); updateErr != nil {
+			return fmt.Errorf("failed to update error status for %s tratteria config: %w", newTratteriaConfig.Name, updateErr)
 		}
 
 		return messagedErr
 	}
 
-	err = c.ruleDispatcher.DispatchTratteriaConfigVerificationRule(ctx, namespace, verificationTokenRule, versionNumber)
+	err = c.serviceMessageHandler.DispatchTratteriaConfigVerificationRule(ctx, newTratteriaConfig.Namespace, verificationTokenRule, versionNumber)
 	if err != nil {
-		messagedErr := fmt.Errorf("error dispatching %s tratteria config verification token rule: %w", name, err)
+		messagedErr := fmt.Errorf("error dispatching %s tratteria config verification token rule: %w", newTratteriaConfig.Name, err)
 
-		c.recorder.Event(tratteriaConfig, corev1.EventTypeWarning, "error", messagedErr.Error())
+		c.recorder.Event(newTratteriaConfig, corev1.EventTypeWarning, "error", messagedErr.Error())
 
-		if updateErr := c.updateErrorTratteriaConfigStatus(ctx, tratteriaConfig, VerificationApplicationStage, err); updateErr != nil {
-			return fmt.Errorf("failed to update error status for %s tratteria config: %w", name, updateErr)
+		if updateErr := c.updateErrorTratteriaConfigStatus(ctx, newTratteriaConfig, VerificationApplicationStage, err); updateErr != nil {
+			return fmt.Errorf("failed to update error status for %s tratteria config: %w", newTratteriaConfig.Name, updateErr)
 		}
 
 		return messagedErr
 	}
 
-	c.recorder.Event(tratteriaConfig, corev1.EventTypeNormal, string(VerificationApplicationStage)+" successful", string(VerificationApplicationStage)+" completed successfully")
+	c.recorder.Event(newTratteriaConfig, corev1.EventTypeNormal, string(VerificationApplicationStage)+" successful", string(VerificationApplicationStage)+" completed successfully")
 
-	generationTokenRule, err := tratteriaConfig.GetTratteriaConfigGenerationRule()
+	generationTokenRule, err := newTratteriaConfig.GetTratteriaConfigGenerationRule()
 	if err != nil {
-		messagedErr := fmt.Errorf("error retrieving generation token rules from %s tratteria config: %w", name, err)
+		messagedErr := fmt.Errorf("error retrieving generation token rules from %s tratteria config: %w", newTratteriaConfig.Name, err)
 
-		c.recorder.Event(tratteriaConfig, corev1.EventTypeWarning, "error", messagedErr.Error())
+		c.recorder.Event(newTratteriaConfig, corev1.EventTypeWarning, "error", messagedErr.Error())
 
-		if updateErr := c.updateErrorTratteriaConfigStatus(ctx, tratteriaConfig, GenerationApplicationStage, err); updateErr != nil {
-			return fmt.Errorf("failed to update error status for %s tratteria config: %w", name, updateErr)
+		if updateErr := c.updateErrorTratteriaConfigStatus(ctx, newTratteriaConfig, GenerationApplicationStage, err); updateErr != nil {
+			return fmt.Errorf("failed to update error status for %s tratteria config: %w", newTratteriaConfig.Name, updateErr)
 		}
 
 		return messagedErr
 	}
 
-	err = c.ruleDispatcher.DispatchTratteriaConfigGenerationRule(ctx, namespace, generationTokenRule, versionNumber)
+	err = c.serviceMessageHandler.DispatchTratteriaConfigGenerationRule(ctx, newTratteriaConfig.Namespace, generationTokenRule, versionNumber)
 	if err != nil {
-		messagedErr := fmt.Errorf("error dispatching %s tratteria config generation token rule: %w", name, err)
+		messagedErr := fmt.Errorf("error dispatching %s tratteria config generation token rule: %w", newTratteriaConfig.Name, err)
 
-		c.recorder.Event(tratteriaConfig, corev1.EventTypeWarning, "error", messagedErr.Error())
+		c.recorder.Event(newTratteriaConfig, corev1.EventTypeWarning, "error", messagedErr.Error())
 
-		if updateErr := c.updateErrorTratteriaConfigStatus(ctx, tratteriaConfig, GenerationApplicationStage, err); updateErr != nil {
-			return fmt.Errorf("failed to update error status for %s tratteria config: %w", name, updateErr)
+		if updateErr := c.updateErrorTratteriaConfigStatus(ctx, newTratteriaConfig, GenerationApplicationStage, err); updateErr != nil {
+			return fmt.Errorf("failed to update error status for %s tratteria config: %w", newTratteriaConfig.Name, updateErr)
 		}
 
 		return messagedErr
 	}
 
-	if updateErr := c.updateSuccessTratteriaConfigStatus(ctx, tratteriaConfig); updateErr != nil {
-		return fmt.Errorf("failed to update success status for %s tratteria config: %w", name, updateErr)
+	if updateErr := c.updateSuccessTratteriaConfigStatus(ctx, newTratteriaConfig); updateErr != nil {
+		return fmt.Errorf("failed to update success status for %s tratteria config: %w", newTratteriaConfig.Name, updateErr)
 	}
 
-	c.recorder.Event(tratteriaConfig, corev1.EventTypeNormal, string(GenerationApplicationStage)+" successful", string(GenerationApplicationStage)+" completed successfully")
+	c.recorder.Event(newTratteriaConfig, corev1.EventTypeNormal, string(GenerationApplicationStage)+" successful", string(GenerationApplicationStage)+" completed successfully")
 
 	return nil
 }

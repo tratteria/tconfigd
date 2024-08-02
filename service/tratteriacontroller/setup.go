@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/tratteria/tconfigd/ruledispatcher"
+	"github.com/tratteria/tconfigd/servicemessagehandler"
 	"go.uber.org/zap"
 
 	"github.com/tratteria/tconfigd/tratteriacontroller/pkg/signals"
@@ -18,20 +18,20 @@ import (
 )
 
 type TratteriaController struct {
-	RuleDispatcher *ruledispatcher.RuleDispatcher
-	Controller     *controller.Controller
-	Logger         *zap.Logger
+	ServiceMessageHandler *servicemessagehandler.ServiceMessageHandler
+	Controller            *controller.Controller
+	Logger                *zap.Logger
 }
 
 func NewTratteriaController(logger *zap.Logger) *TratteriaController {
 	return &TratteriaController{
-		RuleDispatcher: ruledispatcher.NewRuleDispatcher(),
-		Logger:         logger,
+		ServiceMessageHandler: servicemessagehandler.NewServiceMessageHandler(),
+		Logger:                logger,
 	}
 }
 
 func (tc *TratteriaController) SetClientsRetriever(clientsRetriever websocketserver.ClientsRetriever) {
-	tc.RuleDispatcher.SetClientsRetriever(clientsRetriever)
+	tc.ServiceMessageHandler.SetClientsRetriever(clientsRetriever)
 }
 
 func (tc *TratteriaController) Run() error {
@@ -56,7 +56,7 @@ func (tc *TratteriaController) Run() error {
 	tratInformer := tratteriaInformerFactory.Tratteria().V1alpha1().TraTs()
 	tratteriaConfigInformer := tratteriaInformerFactory.Tratteria().V1alpha1().TratteriaConfigs()
 
-	tc.Controller = controller.NewController(ctx, kubeClient, tratteriaClient, tratInformer, tratteriaConfigInformer, tc.RuleDispatcher, tc.Logger)
+	tc.Controller = controller.NewController(ctx, kubeClient, tratteriaClient, tratInformer, tratteriaConfigInformer, tc.ServiceMessageHandler, tc.Logger)
 
 	go func() {
 		tc.Logger.Info("Starting TraT Controller...")

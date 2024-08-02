@@ -4,17 +4,14 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"strconv"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"go.uber.org/zap"
-	"golang.org/x/time/rate"
 
 	"github.com/tratteria/tconfigd/common"
-	"github.com/tratteria/tconfigd/ruledispatcher"
+	"github.com/tratteria/tconfigd/servicemessagehandler"
 
 	corev1 "k8s.io/api/core/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -33,6 +30,20 @@ import (
 	listers "github.com/tratteria/tconfigd/tratteriacontroller/pkg/generated/listers/tratteria/v1alpha1"
 )
 
+const (
+	ControllerAgentName = "trat-controller"
+	TraTKind            = "TraT"
+	TratteriaConfigKind = "TratteriaConfig"
+)
+
+type OperationType string
+
+const (
+	ADD    OperationType = "ADD"
+	UPDATE OperationType = "UPDATE"
+	DELETE OperationType = "DELETE"
+)
+
 type Status string
 
 const (
@@ -47,11 +58,19 @@ const (
 	GenerationApplicationStage   Stage = "generation application stage"
 )
 
-const (
-	ControllerAgentName = "trat-controller"
-	TraTKind            = "TraT"
-	TratteriaConfigKind = "TratteriaConfig"
-)
+type TraTOperation struct {
+	Type          OperationType
+	NewTraT       *tratteria1alpha1.TraT
+	OldTraT       *tratteria1alpha1.TraT
+	VersionNumber int64
+}
+
+type TratteriaConfigOperation struct {
+	Type               OperationType
+	NewTratteriaConfig *tratteria1alpha1.TratteriaConfig
+	OldTratteriaConfig *tratteria1alpha1.TratteriaConfig
+	VersionNumber      int64
+}
 
 type ServiceHash struct {
 	ruleVersionNumber int64
@@ -88,9 +107,9 @@ type Controller struct {
 	tratteriaConfigsLister listers.TratteriaConfigLister
 	traTsSynced            cache.InformerSynced
 	tratteriaConfigsSynced cache.InformerSynced
-	workqueue              workqueue.TypedRateLimitingInterface[string]
+	workqueue              workqueue.TypedRateLimitingInterface[any]
 	recorder               record.EventRecorder
-	ruleDispatcher         *ruledispatcher.RuleDispatcher
+	serviceMessageHandler  *servicemessagehandler.ServiceMessageHandler
 	ruleVersionNumber      int64
 	allRulesHashes         *AllRulesHashes
 	logger                 *zap.Logger
@@ -102,7 +121,7 @@ func NewController(
 	tratteriaclientset clientset.Interface,
 	traTInformer informers.TraTInformer,
 	tratteriaConfigInformer informers.TratteriaConfigInformer,
-	ruleDispatcher *ruledispatcher.RuleDispatcher,
+	serviceMessageHandler *servicemessagehandler.ServiceMessageHandler,
 	logger *zap.Logger) *Controller {
 
 	utilruntime.Must(tratteriascheme.AddToScheme(scheme.Scheme))
@@ -115,10 +134,6 @@ func NewController(
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeclientset.CoreV1().Events("")})
 
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: ControllerAgentName})
-	ratelimiter := workqueue.NewTypedMaxOfRateLimiter(
-		workqueue.NewTypedItemExponentialFailureRateLimiter[string](5*time.Millisecond, 1000*time.Second),
-		&workqueue.TypedBucketRateLimiter[string]{Limiter: rate.NewLimiter(rate.Limit(50), 300)},
-	)
 
 	controller := &Controller{
 		kubeclientset:          kubeclientset,
@@ -127,9 +142,9 @@ func NewController(
 		tratteriaConfigsLister: tratteriaConfigInformer.Lister(),
 		traTsSynced:            traTInformer.Informer().HasSynced,
 		tratteriaConfigsSynced: tratteriaConfigInformer.Informer().HasSynced,
-		workqueue:              workqueue.NewTypedRateLimitingQueue(ratelimiter),
+		workqueue:              workqueue.NewTypedRateLimitingQueue[any](workqueue.DefaultTypedControllerRateLimiter[any]()),
 		recorder:               recorder,
-		ruleDispatcher:         ruleDispatcher,
+		serviceMessageHandler:  serviceMessageHandler,
 		ruleVersionNumber:      0,
 		allRulesHashes:         NewAllRulesHashes(),
 		logger:                 logger,
@@ -139,99 +154,125 @@ func NewController(
 
 	traTInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    controller.AddFunc,
-		UpdateFunc: controller.UpdateTraT,
+		UpdateFunc: controller.UpdateFunc,
+		DeleteFunc: controller.DeleteFunc,
 	})
 
 	tratteriaConfigInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    controller.AddFunc,
-		UpdateFunc: controller.UpdateTratteriaConfig,
+		UpdateFunc: controller.UpdateFunc,
 	})
 
 	return controller
 }
 
 func (c *Controller) AddFunc(obj interface{}) {
-	// This version number and higher represent the rule states that are guaranteed to incorporate this particular change
-	versionNumber := atomic.AddInt64(&c.ruleVersionNumber, 1)
-
-	// Enqueuing the version number to track which clients have already incorporated this change and which clients still
-	// need this change propagated
-	c.enqueueObject(obj, versionNumber)
-}
-
-func (c *Controller) UpdateTraT(oldObj, newObj interface{}) {
-	oldTraT, ok := oldObj.(*tratteria1alpha1.TraT)
-	if !ok {
-		c.logger.Error("Received unexpected object type", zap.String("expected", "TraT"), zap.Any("got", oldObj))
-
-		return
-	}
-
-	newTraT, ok := newObj.(*tratteria1alpha1.TraT)
-	if !ok {
-		c.logger.Error("Received unexpected object type", zap.String("expected", "TraT"), zap.Any("got", oldObj))
-
-		return
-	}
-
-	if !reflect.DeepEqual(oldTraT.Spec, newTraT.Spec) {
-		versionNumber := atomic.AddInt64(&c.ruleVersionNumber, 1)
-		c.enqueueObject(newObj, versionNumber)
-	} else {
-		c.logger.Debug("TraT update ignored, no spec change.", zap.String("namespace", newTraT.Namespace), zap.String("trat", newTraT.Name))
-	}
-}
-
-func (c *Controller) UpdateTratteriaConfig(oldObj, newObj interface{}) {
-	oldTratteriaConfig, ok := oldObj.(*tratteria1alpha1.TratteriaConfig)
-	if !ok {
-		c.logger.Error("Received unexpected object type", zap.String("expected", "TratteriaConfig"), zap.Any("got", oldObj))
-
-		return
-	}
-
-	newTratteriaConfig, ok := newObj.(*tratteria1alpha1.TratteriaConfig)
-	if !ok {
-		c.logger.Error("Received unexpected object type", zap.String("expected", "TratteriaConfig"), zap.Any("got", oldObj))
-
-		return
-	}
-
-	if !reflect.DeepEqual(oldTratteriaConfig.Spec, newTratteriaConfig.Spec) {
-		versionNumber := atomic.AddInt64(&c.ruleVersionNumber, 1)
-		c.enqueueObject(newObj, versionNumber)
-	} else {
-		c.logger.Debug("TratteriaConfig update ignored, no spec change.", zap.String("namespace", newTratteriaConfig.Namespace), zap.String("trat", newTratteriaConfig.Name))
-	}
-}
-
-func (c *Controller) enqueueObject(obj interface{}, versionNumber int64) {
-	key, err := cache.MetaNamespaceKeyFunc(obj)
-	if err != nil {
-		utilruntime.HandleError(err)
-
-		return
-	}
-
-	var resourceType string
-
-	switch obj.(type) {
+	switch v := obj.(type) {
 	case *tratteria1alpha1.TraT:
-		resourceType = TraTKind
+		versionNumber := atomic.AddInt64(&c.ruleVersionNumber, 1)
+
+		c.workqueue.Add(TraTOperation{Type: ADD, NewTraT: v, VersionNumber: versionNumber})
+
+		c.logger.Info("Processing TraT addition operation.",
+			zap.String("name", v.Name),
+			zap.String("namespace", v.Namespace),
+			zap.Int64("version-number", versionNumber))
 	case *tratteria1alpha1.TratteriaConfig:
-		resourceType = TratteriaConfigKind
+		versionNumber := atomic.AddInt64(&c.ruleVersionNumber, 1)
+
+		c.workqueue.Add(TratteriaConfigOperation{Type: ADD, NewTratteriaConfig: v, VersionNumber: versionNumber})
+
+		c.logger.Info("Processing TratteriaConfig addition operation.",
+			zap.String("name", v.Name),
+			zap.String("namespace", v.Namespace),
+			zap.Int64("version-number", versionNumber))
 	default:
-		utilruntime.HandleError(fmt.Errorf("unknown type cannot be enqueued: %T", obj))
-
-		return
+		c.logger.Error("Unknown type incountered for addition operation", zap.Any("obj", obj))
 	}
+}
 
-	c.workqueue.Add(fmt.Sprintf("%s/%s/%d", resourceType, key, versionNumber))
+func (c *Controller) UpdateFunc(oldObj, newObj interface{}) {
+	switch oldV := oldObj.(type) {
+	case *tratteria1alpha1.TraT:
+		newV, ok := newObj.(*tratteria1alpha1.TraT)
+		if !ok {
+			c.logger.Error("Received unexpected object type", zap.String("expected", "TraT"), zap.Any("got", oldObj))
 
-	c.logger.Info("Enqueued resource with new rule version.",
-		zap.String("resource-type", resourceType),
-		zap.String("key", key),
-		zap.Int64("version-number", versionNumber))
+			return
+		}
+
+		if reflect.DeepEqual(newV.Spec, oldV.Spec) {
+			c.logger.Debug("TraT update ignored, no spec change.",
+				zap.String("name", newV.Name),
+				zap.String("namespace", newV.Namespace))
+
+			return
+		}
+
+		versionNumber := atomic.AddInt64(&c.ruleVersionNumber, 1)
+
+		c.workqueue.Add(TraTOperation{Type: UPDATE, NewTraT: newV, OldTraT: oldV, VersionNumber: versionNumber})
+
+		c.logger.Info("Processing TraT update operation.",
+			zap.String("name", oldV.Name),
+			zap.String("namespace", oldV.Namespace),
+			zap.Int64("version-number", versionNumber))
+	case *tratteria1alpha1.TratteriaConfig:
+		newV, ok := newObj.(*tratteria1alpha1.TratteriaConfig)
+		if !ok {
+			c.logger.Error("Received unexpected object type", zap.String("expected", "TratteriaConfig"), zap.Any("got", oldObj))
+
+			return
+		}
+
+		if reflect.DeepEqual(newV.Spec, oldV.Spec) {
+			c.logger.Debug("TratteriaConfig update ignored, no spec change.",
+				zap.String("name", newV.Name),
+				zap.String("namespace", newV.Namespace),
+			)
+
+			return
+		}
+
+		versionNumber := atomic.AddInt64(&c.ruleVersionNumber, 1)
+
+		c.workqueue.Add(TratteriaConfigOperation{Type: UPDATE, NewTratteriaConfig: newV, OldTratteriaConfig: oldV, VersionNumber: versionNumber})
+
+		c.logger.Info("Processing TratteriaConfig update operation.",
+			zap.String("name", oldV.Name),
+			zap.String("namespace", oldV.Namespace),
+			zap.Int64("version-number", versionNumber))
+	default:
+		c.logger.Error("Unknown type incountered for updated operation", zap.Any("oldObj", oldObj), zap.Any("newObj", newObj))
+	}
+}
+
+func (c *Controller) DeleteFunc(obj interface{}) {
+	switch oldV := obj.(type) {
+	case *tratteria1alpha1.TraT:
+		versionNumber := atomic.AddInt64(&c.ruleVersionNumber, 1)
+
+		c.workqueue.Add(TraTOperation{Type: DELETE, OldTraT: oldV, VersionNumber: versionNumber})
+		c.logger.Info("Processing TraT deletion operation.",
+			zap.String("name", oldV.Name),
+			zap.String("namespace", oldV.Namespace),
+			zap.Int64("version-number", versionNumber))
+	case cache.DeletedFinalStateUnknown:
+		switch t := oldV.Obj.(type) {
+		case *tratteria1alpha1.TraT:
+			versionNumber := atomic.AddInt64(&c.ruleVersionNumber, 1)
+
+			c.workqueue.Add(TraTOperation{Type: DELETE, OldTraT: t, VersionNumber: versionNumber})
+			c.logger.Info("Processing TraT deletion operation.",
+				zap.String("name", t.Name),
+				zap.String("namespace", t.Namespace),
+				zap.Int64("version-number", versionNumber))
+		default:
+			c.logger.Error("Tombstone contained unknown or unexpected type", zap.Any("obj", t))
+		}
+	default:
+		c.logger.Error("Unknown or unexpected type incountered for deletion operation", zap.Any("obj", obj))
+	}
 }
 
 func (c *Controller) Run(ctx context.Context, workers int) error {
@@ -282,8 +323,6 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 
 		c.workqueue.Forget(obj)
 
-		c.logger.Info("Successfully applied.", zap.String("resourceName", obj))
-
 		return nil
 	}()
 
@@ -296,34 +335,31 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	return true
 }
 
-func (c *Controller) syncHandler(ctx context.Context, key string) error {
-	parts := strings.Split(key, "/")
-	if len(parts) < 4 {
-		utilruntime.HandleError(fmt.Errorf("unexpected key format: %s", key))
-
-		return nil
+func (c *Controller) syncHandler(ctx context.Context, obj any) error {
+	switch op := obj.(type) {
+	case TraTOperation:
+		switch op.Type {
+		case ADD:
+			return c.handleTraTUpsert(ctx, op.NewTraT, op.VersionNumber)
+		case UPDATE:
+			return c.handleTraTUpdation(ctx, op.NewTraT, op.OldTraT, op.VersionNumber)
+		case DELETE:
+			return c.handleTraTDeletion(ctx, op.OldTraT, op.VersionNumber)
+		default:
+			return fmt.Errorf("unknown TraT operation type: %s", op.Type)
+		}
+	case TratteriaConfigOperation:
+		switch op.Type {
+		case ADD:
+			return c.handleTratteriaConfigUpsert(ctx, op.NewTratteriaConfig, op.VersionNumber)
+		case UPDATE:
+			return c.handleTratteriaConfigUpsert(ctx, op.NewTratteriaConfig, op.VersionNumber)
+		default:
+			return fmt.Errorf("unknown TratteriaConfig operation type: %s", op.Type)
+		}
 	}
 
-	resourceType := parts[0]
-	objectKey := parts[1] + "/" + parts[2]
-	versionNumber, err := strconv.Atoi(parts[3])
-
-	if err != nil {
-		utilruntime.HandleError(fmt.Errorf("invalid version number in key: %s", key))
-
-		return nil
-	}
-
-	switch resourceType {
-	case TraTKind:
-		return c.handleTraT(ctx, objectKey, int64(versionNumber))
-	case TratteriaConfigKind:
-		return c.handleTratteriaConfig(ctx, objectKey, int64(versionNumber))
-	default:
-		utilruntime.HandleError(fmt.Errorf("unhandled resource type: %s", resourceType))
-
-		return nil
-	}
+	return fmt.Errorf("unknown operation type: %T", obj)
 }
 
 func (c *Controller) GetActiveVerificationRules(serviceName string, namespace string) (*tratteria1alpha1.VerificationRules, int64, error) {
