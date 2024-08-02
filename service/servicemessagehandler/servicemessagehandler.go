@@ -63,8 +63,8 @@ func (rd *ServiceMessageHandler) sendMessage(ctx context.Context, serviceName st
 	return nil
 }
 
-func (rd *ServiceMessageHandler) DispatchTraTVerificationRule(ctx context.Context, serviceName string, namespace string, verificationEndpointRule *v1alpha1.TraTVerificationRule, versionNumber int64) error {
-	jsonData, err := json.Marshal(verificationEndpointRule)
+func (rd *ServiceMessageHandler) DispatchTraTVerificationRule(ctx context.Context, serviceName string, namespace string, serviceTraTVerificationRules *v1alpha1.ServiceTraTVerificationRules, versionNumber int64) error {
+	jsonData, err := json.Marshal(serviceTraTVerificationRules)
 	if err != nil {
 		return fmt.Errorf("error marshaling verification trat rule: %w", err)
 	}

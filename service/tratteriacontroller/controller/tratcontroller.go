@@ -14,7 +14,7 @@ import (
 )
 
 func (c *Controller) handleTraTUpsert(ctx context.Context, newTraT *tratteria1alpha1.TraT, versionNumber int64) error {
-	verificationEndpointRules, err := newTraT.GetTraTVerificationRules()
+	servicestraTVerificationRules, err := newTraT.GetTraTVerificationRules()
 	if err != nil {
 		messagedErr := fmt.Errorf("error retrieving verification rules from %s trat: %w", newTraT.Name, err)
 
@@ -28,8 +28,8 @@ func (c *Controller) handleTraTUpsert(ctx context.Context, newTraT *tratteria1al
 	}
 
 	// TODO: Implement parallel dispatching of rules using goroutines
-	for service, serviceVerificationRule := range verificationEndpointRules {
-		err := c.serviceMessageHandler.DispatchTraTVerificationRule(ctx, service, newTraT.Namespace, serviceVerificationRule, versionNumber)
+	for service, serviceTraTVerificationRules := range servicestraTVerificationRules {
+		err := c.serviceMessageHandler.DispatchTraTVerificationRule(ctx, service, newTraT.Namespace, serviceTraTVerificationRules, versionNumber)
 		if err != nil {
 			messagedErr := fmt.Errorf("error dispatching %s trat verification rule to %s service: %w", newTraT.Name, service, err)
 
@@ -83,16 +83,21 @@ func (c *Controller) handleTraTUpsert(ctx context.Context, newTraT *tratteria1al
 func (c *Controller) handleTraTUpdation(ctx context.Context, newTraT *tratteria1alpha1.TraT, oldTraT *tratteria1alpha1.TraT, versionNumber int64) error {
 	// First, handle any service removals from the TraT
 	newServices := make(map[string]bool)
-	for _, serviceSpec := range newTraT.Spec.Services {
-		newServices[serviceSpec.Name] = true
+	for _, newServiceSpec := range newTraT.Spec.Services {
+		newServices[newServiceSpec.Name] = true
 	}
 
+	oldServices := make(map[string]bool)
 	for _, oldServiceSpec := range oldTraT.Spec.Services {
-		if !newServices[oldServiceSpec.Name] {
+		oldServices[oldServiceSpec.Name] = true
+	}
+
+	for oldService := range oldServices {
+		if !newServices[oldService] {
 			// Service was removed, so remove the TraT from it
-			err := c.serviceMessageHandler.DeleteTraT(ctx, oldServiceSpec.Name, oldTraT.Namespace, oldTraT.Name, versionNumber)
+			err := c.serviceMessageHandler.DeleteTraT(ctx, oldService, oldTraT.Namespace, oldTraT.Name, versionNumber)
 			if err != nil {
-				messagedErr := fmt.Errorf("error deleting %s trat from %s service: %w", oldTraT.Name, oldServiceSpec.Name, err)
+				messagedErr := fmt.Errorf("error deleting %s trat from %s service: %w", oldTraT.Name, oldService, err)
 
 				c.recorder.Event(newTraT, corev1.EventTypeWarning, "error", messagedErr.Error())
 
@@ -110,21 +115,22 @@ func (c *Controller) handleTraTUpdation(ctx context.Context, newTraT *tratteria1
 }
 
 func (c *Controller) handleTraTDeletion(ctx context.Context, oldTraT *tratteria1alpha1.TraT, versionNumber int64) error {
-	// TODO: Implement parallel requests using goroutines
+	services := make(map[string]bool)
+
 	for _, serviceSpec := range oldTraT.Spec.Services {
-		err := c.serviceMessageHandler.DeleteTraT(ctx, serviceSpec.Name, oldTraT.Namespace, oldTraT.Name, versionNumber)
+		services[serviceSpec.Name] = true
+	}
+
+	services[common.TRATTERIA_SERVICE_NAME] = true
+
+	// TODO: Implement parallel requests using goroutines
+	for service := range services {
+		err := c.serviceMessageHandler.DeleteTraT(ctx, service, oldTraT.Namespace, oldTraT.Name, versionNumber)
 		if err != nil {
-			messagedErr := fmt.Errorf("error deleting %s trat from %s service: %w", oldTraT.Name, serviceSpec.Name, err)
+			messagedErr := fmt.Errorf("error deleting %s trat from %s service: %w", oldTraT.Name, service, err)
 
 			return messagedErr
 		}
-	}
-
-	err := c.serviceMessageHandler.DeleteTraT(ctx, common.TRATTERIA_SERVICE_NAME, oldTraT.Namespace, oldTraT.Name, versionNumber)
-	if err != nil {
-		messagedErr := fmt.Errorf("error deleting %s trat from %s service: %w", oldTraT.Name, common.TRATTERIA_SERVICE_NAME, err)
-
-		return messagedErr
 	}
 
 	return nil
@@ -161,7 +167,7 @@ func (c *Controller) updateSuccessTratStatus(ctx context.Context, trat *tratteri
 	return updateErr
 }
 
-func (c *Controller) GetActiveTraTsVerificationRules(serviceName string, namespace string) (map[string]*tratteria1alpha1.TraTVerificationRule, error) {
+func (c *Controller) GetActiveTraTsVerificationRules(serviceName string, namespace string) (map[string]*tratteria1alpha1.ServiceTraTVerificationRules, error) {
 	traTs, err := c.traTsLister.TraTs(namespace).List(labels.Everything())
 	if err != nil {
 		c.logger.Error("Failed to list TraTs in namespace.", zap.String("namespace", namespace), zap.Error(err))
@@ -169,19 +175,20 @@ func (c *Controller) GetActiveTraTsVerificationRules(serviceName string, namespa
 		return nil, err
 	}
 
-	traTsVerificationRules := make(map[string]*tratteria1alpha1.TraTVerificationRule)
+	serviceTraTsVerificationRules := make(map[string]*tratteria1alpha1.ServiceTraTVerificationRules)
 
 	for _, traT := range traTs {
-		traTVerificationRule, err := traT.GetTraTVerificationRules()
+		traTVerificationRules, err := traT.GetTraTVerificationRules()
 		if err != nil {
 			return nil, err
 		}
-		if serviceTraTVerificationRule := traTVerificationRule[serviceName]; serviceTraTVerificationRule != nil {
-			traTsVerificationRules[traT.Name] = serviceTraTVerificationRule
+
+		if serviceTraTVerificationRules := traTVerificationRules[serviceName]; serviceTraTVerificationRules != nil {
+			serviceTraTsVerificationRules[traT.Name] = serviceTraTVerificationRules
 		}
 	}
 
-	return traTsVerificationRules, nil
+	return serviceTraTsVerificationRules, nil
 }
 
 func (c *Controller) GetActiveTraTsGenerationRules(namespace string) (map[string]*tratteria1alpha1.TraTGenerationRule, error) {

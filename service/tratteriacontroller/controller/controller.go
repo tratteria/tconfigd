@@ -371,14 +371,14 @@ func (c *Controller) GetActiveVerificationRules(serviceName string, namespace st
 		return nil, 0, err
 	}
 
-	traTVerificationRules, err := c.GetActiveTraTsVerificationRules(serviceName, namespace)
+	traTsVerificationRules, err := c.GetActiveTraTsVerificationRules(serviceName, namespace)
 	if err != nil {
 		return nil, 0, err
 	}
 
 	return &tratteria1alpha1.VerificationRules{
 			TratteriaConfigVerificationRule: tratteriaConfigVerificationRule,
-			TraTsVerificationRules:          traTVerificationRules,
+			TraTsVerificationRules:          traTsVerificationRules,
 		},
 		activeRuleVersionNumber,
 		nil
