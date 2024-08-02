@@ -68,6 +68,11 @@ type TraTVerificationRule struct {
 	AzdMapping AzdMapping `json:"azdmapping,omitempty"`
 }
 
+type ServiceTraTVerificationRules struct {
+	TraTName              string
+	TraTVerificationRules []*TraTVerificationRule
+}
+
 type TraTGenerationRule struct {
 	TraTName   string     `json:"traTName"`
 	Endpoint   string     `json:"endpoint"`
@@ -76,10 +81,10 @@ type TraTGenerationRule struct {
 	AzdMapping AzdMapping `json:"azdmapping,omitempty"`
 }
 
-func (traT *TraT) GetTraTVerificationRules() (map[string]*TraTVerificationRule, error) {
-	verificationRules := make(map[string]*TraTVerificationRule)
-
-	// TODO: do basic check and return err if failed
+// constructs TraT verification for each service present in the call chain
+// a single service can have multiple different APIs present in the call chain, so it return the map of list of TraTVerificationRule
+func (traT *TraT) GetTraTVerificationRules() (map[string]*ServiceTraTVerificationRules, error) {
+	servicesTraTVerificationRules := make(map[string]*ServiceTraTVerificationRules)
 
 	for _, serviceSpec := range traT.Spec.Services {
 		endpoint := traT.Spec.Endpoint
@@ -98,25 +103,31 @@ func (traT *TraT) GetTraTVerificationRules() (map[string]*TraTVerificationRule, 
 			azdMapping = serviceSpec.AzdMapping
 		}
 
-		verificationRules[serviceSpec.Name] = &TraTVerificationRule{
-			TraTName:   traT.Name,
-			Endpoint:   endpoint,
-			Method:     method,
-			Purp:       traT.Spec.Purp,
-			AzdMapping: azdMapping,
+		if servicesTraTVerificationRules[serviceSpec.Name] == nil {
+			servicesTraTVerificationRules[serviceSpec.Name] = &ServiceTraTVerificationRules{
+				TraTName: traT.Name,
+			}
 		}
 
+		servicesTraTVerificationRules[serviceSpec.Name].TraTVerificationRules = append(
+			servicesTraTVerificationRules[serviceSpec.Name].TraTVerificationRules,
+			&TraTVerificationRule{
+				TraTName:   traT.Name,
+				Endpoint:   endpoint,
+				Method:     method,
+				Purp:       traT.Spec.Purp,
+				AzdMapping: azdMapping,
+			})
 	}
 
-	if len(verificationRules) == 0 {
+	if len(servicesTraTVerificationRules) == 0 {
 		return nil, fmt.Errorf("%w: verification rules for %s trat", tconfigderrors.ErrNotFound, traT.Name)
 	}
 
-	return verificationRules, nil
+	return servicesTraTVerificationRules, nil
 }
 
 func (traT *TraT) GetTraTGenerationRule() (*TraTGenerationRule, error) {
-	// TODO: do basic check and return err if failed
 
 	return &TraTGenerationRule{
 		TraTName:   traT.Name,
@@ -218,8 +229,8 @@ func (tratteriaConfig *TratteriaConfig) GetTratteriaConfigGenerationRule() (*Tra
 }
 
 type VerificationRules struct {
-	TratteriaConfigVerificationRule *TratteriaConfigVerificationRule `json:"tratteriaConfigVerificationRule"`
-	TraTsVerificationRules          map[string]*TraTVerificationRule `json:"traTsVerificationRules"`
+	TratteriaConfigVerificationRule *TratteriaConfigVerificationRule         `json:"tratteriaConfigVerificationRule"`
+	TraTsVerificationRules          map[string]*ServiceTraTVerificationRules `json:"traTsVerificationRules"`
 }
 
 func (verificationRules *VerificationRules) ComputeStableHash() (string, error) {
