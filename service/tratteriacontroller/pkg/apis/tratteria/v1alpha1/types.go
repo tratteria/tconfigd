@@ -33,6 +33,7 @@ type TraTSpec struct {
 type ServiceSpec struct {
 	Name       string     `json:"name"`
 	Endpoint   string     `json:"endpoint,omitempty"`
+	Method     string     `json:"method,omitempty"`
 	AzdMapping AzdMapping `json:"azdMapping,omitempty"`
 }
 
@@ -82,10 +83,15 @@ func (traT *TraT) GetTraTVerificationRules() (map[string]*TraTVerificationRule, 
 
 	for _, serviceSpec := range traT.Spec.Services {
 		endpoint := traT.Spec.Endpoint
+		method := traT.Spec.Method
 		azdMapping := traT.Spec.AzdMapping
 
 		if serviceSpec.Endpoint != "" {
 			endpoint = serviceSpec.Endpoint
+		}
+
+		if serviceSpec.Method != "" {
+			method = serviceSpec.Method
 		}
 
 		if serviceSpec.AzdMapping != nil {
@@ -95,7 +101,7 @@ func (traT *TraT) GetTraTVerificationRules() (map[string]*TraTVerificationRule, 
 		verificationRules[serviceSpec.Name] = &TraTVerificationRule{
 			TraTName:   traT.Name,
 			Endpoint:   endpoint,
-			Method:     traT.Spec.Method,
+			Method:     method,
 			Purp:       traT.Spec.Purp,
 			AzdMapping: azdMapping,
 		}
