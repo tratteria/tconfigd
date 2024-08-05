@@ -15,7 +15,7 @@ import (
 
 type Webhook struct {
 	EnableTratInterception bool
-	AgentHttpApiPort       int
+	AgentApiPort           int
 	AgentInterceptorPort   int
 	SpireAgentHostDir      string
 	TconfigdSpiffeId       spiffeid.ID
@@ -23,7 +23,7 @@ type Webhook struct {
 }
 
 func (wh *Webhook) Run() error {
-	handler := handler.NewHandlers(wh.EnableTratInterception, wh.AgentHttpApiPort, wh.AgentInterceptorPort, wh.SpireAgentHostDir, wh.TconfigdSpiffeId, wh.Logger)
+	handler := handler.NewHandlers(wh.EnableTratInterception, wh.AgentApiPort, wh.AgentInterceptorPort, wh.SpireAgentHostDir, wh.TconfigdSpiffeId, wh.Logger)
 	router := mux.NewRouter()
 
 	initializeRoutes(router, handler)

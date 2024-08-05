@@ -79,7 +79,7 @@ func main() {
 	go func() {
 		webhook := &webhook.Webhook{
 			EnableTratInterception: bool(config.EnableTratInterception),
-			AgentHttpApiPort:       int(config.AgentHttpApiPort),
+			AgentApiPort:           int(config.AgentApiPort),
 			AgentInterceptorPort:   int(config.AgentInterceptorPort),
 			SpireAgentHostDir:      config.SpireAgentHostDir,
 			TconfigdSpiffeId:       tconfigdSpiffeId,
