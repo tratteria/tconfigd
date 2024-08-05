@@ -133,7 +133,7 @@ func CreatePodPatch(pod *corev1.Pod, injectInitContainer bool, agentHttpsApiPort
 				Value: "unix:///run/spire/sockets/agent.sock",
 			},
 			{
-				Name:  "AGENT_HTTP_API_PORT",
+				Name:  "AGENT_API_PORT",
 				Value: strconv.Itoa(agentHttpApiPort),
 			},
 			{

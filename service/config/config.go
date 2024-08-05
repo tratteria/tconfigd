@@ -75,7 +75,7 @@ type Config struct {
 	SpireAgentHostDir      string             `yaml:"spireAgentHostDir"`
 	TratteriaSpiffeId      SPIFFEIDFromString `yaml:"tratteriaSpiffeId"`
 	EnableTratInterception BoolFromString     `yaml:"enableTratInterception"`
-	AgentHttpApiPort       IntFromString      `yaml:"agentHttpApiPort"`
+	AgentApiPort           IntFromString      `yaml:"agentApiPort"`
 	AgentInterceptorPort   IntFromString      `yaml:"agentInterceptorPort"`
 }
 
