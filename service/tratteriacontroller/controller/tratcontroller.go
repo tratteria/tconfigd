@@ -45,7 +45,7 @@ func (c *Controller) handleTraTUpsert(ctx context.Context, newTraT *tratteria1al
 
 	c.recorder.Event(newTraT, corev1.EventTypeNormal, string(VerificationApplicationStage)+" successful", string(VerificationApplicationStage)+" completed successfully")
 
-	generationEndpointRule, err := newTraT.GetTraTGenerationRule()
+	traTGenerationRule, err := newTraT.GetTraTGenerationRule()
 	if err != nil {
 		messagedErr := fmt.Errorf("error retrieving generation rules from %s trat: %w", newTraT.Name, err)
 
@@ -58,7 +58,7 @@ func (c *Controller) handleTraTUpsert(ctx context.Context, newTraT *tratteria1al
 		return messagedErr
 	}
 
-	err = c.serviceMessageHandler.DispatchTraTGenerationRule(ctx, newTraT.Namespace, generationEndpointRule, versionNumber)
+	err = c.serviceMessageHandler.DispatchTraTGenerationRule(ctx, newTraT.Namespace, traTGenerationRule, versionNumber)
 	if err != nil {
 		messagedErr := fmt.Errorf("error dispatching %s trat generation rule: %w", newTraT.Name, err)
 

@@ -115,8 +115,8 @@ func (smh *ServiceMessageHandler) DispatchTratteriaConfigVerificationRule(ctx co
 	return nil
 }
 
-func (smh *ServiceMessageHandler) DispatchTraTGenerationRule(ctx context.Context, namespace string, generationEndpointRule *v1alpha1.TraTGenerationRule, verisionNumber int64) error {
-	jsonData, err := json.Marshal(generationEndpointRule)
+func (smh *ServiceMessageHandler) DispatchTraTGenerationRule(ctx context.Context, namespace string, traTGenerationRule *v1alpha1.TraTGenerationRule, verisionNumber int64) error {
+	jsonData, err := json.Marshal(traTGenerationRule)
 	if err != nil {
 		return fmt.Errorf("error marshaling generation trat rule: %w", err)
 	}
