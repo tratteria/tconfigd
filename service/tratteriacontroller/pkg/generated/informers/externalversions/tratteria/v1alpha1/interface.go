@@ -26,6 +26,8 @@ import (
 type Interface interface {
 	// TraTs returns a TraTInformer.
 	TraTs() TraTInformer
+	// TraTExclusions returns a TraTExclusionInformer.
+	TraTExclusions() TraTExclusionInformer
 	// TratteriaConfigs returns a TratteriaConfigInformer.
 	TratteriaConfigs() TratteriaConfigInformer
 }
@@ -44,6 +46,11 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 // TraTs returns a TraTInformer.
 func (v *version) TraTs() TraTInformer {
 	return &traTInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// TraTExclusions returns a TraTExclusionInformer.
+func (v *version) TraTExclusions() TraTExclusionInformer {
+	return &traTExclusionInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // TratteriaConfigs returns a TratteriaConfigInformer.

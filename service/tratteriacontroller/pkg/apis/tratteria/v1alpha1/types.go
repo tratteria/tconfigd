@@ -228,9 +228,56 @@ func (tratteriaConfig *TratteriaConfig) GetTratteriaConfigGenerationRule() (*Tra
 	return &generationTratteriaConfigRule, nil
 }
 
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type TraTExclusion struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec   TraTExclusionSpec   `json:"spec"`
+	Status TraTExclusionStatus `json:"status,omitempty"`
+}
+
+type TraTExclusionSpec struct {
+	Service   string     `json:"service"`
+	Endpoints []Endpoint `json:"endpoints"`
+}
+
+type Endpoint struct {
+	Path   string `json:"path"`
+	Method string `json:"method"`
+}
+
+type TraTExclusionStatus struct {
+	Status           string `json:"status,omitempty"`
+	LastErrorMessage string `json:"lastErrorMessage,omitempty"`
+	Retries          int32  `json:"retries,omitempty"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type TraTExclusionList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+
+	Items []TraTExclusion `json:"items"`
+}
+
+type TraTExclRule struct {
+	Endpoints []Endpoint `json:"endpoints"`
+}
+
+func (traTExclusion *TraTExclusion) GetTraTExclRules() *TraTExclRule {
+	return &TraTExclRule{
+		Endpoints: traTExclusion.Spec.Endpoints,
+	}
+}
+
 type VerificationRules struct {
 	TratteriaConfigVerificationRule *TratteriaConfigVerificationRule         `json:"tratteriaConfigVerificationRule"`
 	TraTsVerificationRules          map[string]*ServiceTraTVerificationRules `json:"traTsVerificationRules"`
+	TraTExclRule                    *TraTExclRule                            `json:"traTExclRule"`
 }
 
 func (verificationRules *VerificationRules) ComputeStableHash() (string, error) {
