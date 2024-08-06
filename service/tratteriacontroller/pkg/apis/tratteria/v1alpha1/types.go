@@ -23,7 +23,7 @@ type TraT struct {
 }
 
 type TraTSpec struct {
-	Endpoint   string              `json:"endpoint"`
+	Path       string              `json:"path"`
 	Method     string              `json:"method"`
 	Purp       string              `json:"purp"`
 	AzdMapping map[string]AzdField `json:"azdMapping,omitempty"`
@@ -32,7 +32,7 @@ type TraTSpec struct {
 
 type ServiceSpec struct {
 	Name       string     `json:"name"`
-	Endpoint   string     `json:"endpoint,omitempty"`
+	Path       string     `json:"path,omitempty"`
 	Method     string     `json:"method,omitempty"`
 	AzdMapping AzdMapping `json:"azdMapping,omitempty"`
 }
@@ -62,7 +62,7 @@ type TraTList struct {
 
 type TraTVerificationRule struct {
 	TraTName   string     `json:"traTName"`
-	Endpoint   string     `json:"endpoint"`
+	Path       string     `json:"path"`
 	Method     string     `json:"method"`
 	Purp       string     `json:"purp"`
 	AzdMapping AzdMapping `json:"azdmapping,omitempty"`
@@ -75,7 +75,7 @@ type ServiceTraTVerificationRules struct {
 
 type TraTGenerationRule struct {
 	TraTName   string     `json:"traTName"`
-	Endpoint   string     `json:"endpoint"`
+	Path       string     `json:"path"`
 	Method     string     `json:"method"`
 	Purp       string     `json:"purp"`
 	AzdMapping AzdMapping `json:"azdmapping,omitempty"`
@@ -87,12 +87,12 @@ func (traT *TraT) GetTraTVerificationRules() (map[string]*ServiceTraTVerificatio
 	servicesTraTVerificationRules := make(map[string]*ServiceTraTVerificationRules)
 
 	for _, serviceSpec := range traT.Spec.Services {
-		endpoint := traT.Spec.Endpoint
+		path := traT.Spec.Path
 		method := traT.Spec.Method
 		azdMapping := traT.Spec.AzdMapping
 
-		if serviceSpec.Endpoint != "" {
-			endpoint = serviceSpec.Endpoint
+		if serviceSpec.Path != "" {
+			path = serviceSpec.Path
 		}
 
 		if serviceSpec.Method != "" {
@@ -113,7 +113,7 @@ func (traT *TraT) GetTraTVerificationRules() (map[string]*ServiceTraTVerificatio
 			servicesTraTVerificationRules[serviceSpec.Name].TraTVerificationRules,
 			&TraTVerificationRule{
 				TraTName:   traT.Name,
-				Endpoint:   endpoint,
+				Path:       path,
 				Method:     method,
 				Purp:       traT.Spec.Purp,
 				AzdMapping: azdMapping,
@@ -131,7 +131,7 @@ func (traT *TraT) GetTraTGenerationRule() (*TraTGenerationRule, error) {
 
 	return &TraTGenerationRule{
 		TraTName:   traT.Name,
-		Endpoint:   traT.Spec.Endpoint,
+		Path:       traT.Spec.Path,
 		Method:     traT.Spec.Method,
 		Purp:       traT.Spec.Purp,
 		AzdMapping: traT.Spec.AzdMapping,
