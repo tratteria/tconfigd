@@ -11,6 +11,68 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// DynamicMap is a wrapper around map[string]interface{} that implements DeepCopyInterface
+type DynamicMap struct {
+	Map map[string]interface{} `json:"-"`
+}
+
+func (in *DynamicMap) DeepCopyInterface() interface{} {
+	if in == nil {
+		return nil
+	}
+
+	out := new(DynamicMap)
+
+	in.DeepCopyInto(out)
+
+	return out
+}
+
+func (in *DynamicMap) DeepCopyInto(out *DynamicMap) {
+	clone := make(map[string]interface{})
+
+	for k, v := range in.Map {
+		clone[k] = deepCopyJSONValue(v)
+	}
+
+	out.Map = clone
+}
+
+func deepCopyJSONValue(v interface{}) interface{} {
+	if v == nil {
+		return nil
+	}
+
+	switch v := v.(type) {
+	case []interface{}:
+		arr := make([]interface{}, len(v))
+
+		for i, elem := range v {
+			arr[i] = deepCopyJSONValue(elem)
+		}
+
+		return arr
+	case map[string]interface{}:
+		m := make(map[string]interface{})
+
+		for k, val := range v {
+			m[k] = deepCopyJSONValue(val)
+		}
+
+		return m
+	default:
+		return v
+	}
+}
+
+func (in *DynamicMap) MarshalJSON() ([]byte, error) {
+	return json.Marshal(in.Map)
+}
+
+func (in *DynamicMap) UnmarshalJSON(data []byte) error {
+	return json.Unmarshal(data, &in.Map)
+}
+
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
@@ -23,11 +85,12 @@ type TraT struct {
 }
 
 type TraTSpec struct {
-	Path       string              `json:"path"`
-	Method     string              `json:"method"`
-	Purp       string              `json:"purp"`
-	AzdMapping map[string]AzdField `json:"azdMapping,omitempty"`
-	Services   []ServiceSpec       `json:"services"`
+	Path             string              `json:"path"`
+	Method           string              `json:"method"`
+	Purp             string              `json:"purp"`
+	AzdMapping       map[string]AzdField `json:"azdMapping,omitempty"`
+	Services         []ServiceSpec       `json:"services"`
+	AccessEvaluation *DynamicMap         `json:"accessEvaluation,omitempty"`
 }
 
 type ServiceSpec struct {
@@ -74,11 +137,12 @@ type ServiceTraTVerificationRules struct {
 }
 
 type TraTGenerationRule struct {
-	TraTName   string     `json:"traTName"`
-	Path       string     `json:"path"`
-	Method     string     `json:"method"`
-	Purp       string     `json:"purp"`
-	AzdMapping AzdMapping `json:"azdmapping,omitempty"`
+	TraTName         string      `json:"traTName"`
+	Path             string      `json:"path"`
+	Method           string      `json:"method"`
+	Purp             string      `json:"purp"`
+	AzdMapping       AzdMapping  `json:"azdmapping,omitempty"`
+	AccessEvaluation *DynamicMap `json:"accessEvaluation,omitempty"`
 }
 
 // constructs TraT verification for each service present in the call chain
@@ -130,11 +194,12 @@ func (traT *TraT) GetTraTVerificationRules() (map[string]*ServiceTraTVerificatio
 func (traT *TraT) GetTraTGenerationRule() (*TraTGenerationRule, error) {
 
 	return &TraTGenerationRule{
-		TraTName:   traT.Name,
-		Path:       traT.Spec.Path,
-		Method:     traT.Spec.Method,
-		Purp:       traT.Spec.Purp,
-		AzdMapping: traT.Spec.AzdMapping,
+		TraTName:         traT.Name,
+		Path:             traT.Spec.Path,
+		Method:           traT.Spec.Method,
+		Purp:             traT.Spec.Purp,
+		AzdMapping:       traT.Spec.AzdMapping,
+		AccessEvaluation: traT.Spec.AccessEvaluation,
 	}, nil
 }
 
