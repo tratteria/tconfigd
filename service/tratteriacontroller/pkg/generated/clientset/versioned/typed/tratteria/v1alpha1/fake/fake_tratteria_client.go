@@ -32,6 +32,10 @@ func (c *FakeTratteriaV1alpha1) TraTs(namespace string) v1alpha1.TraTInterface {
 	return &FakeTraTs{c, namespace}
 }
 
+func (c *FakeTratteriaV1alpha1) TraTExclusions(namespace string) v1alpha1.TraTExclusionInterface {
+	return &FakeTraTExclusions{c, namespace}
+}
+
 func (c *FakeTratteriaV1alpha1) TratteriaConfigs(namespace string) v1alpha1.TratteriaConfigInterface {
 	return &FakeTratteriaConfigs{c, namespace}
 }

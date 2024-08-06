@@ -51,6 +51,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&TraTList{},
 		&TratteriaConfig{},
 		&TratteriaConfigList{},
+		&TraTExclusion{},
+        &TraTExclusionList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil

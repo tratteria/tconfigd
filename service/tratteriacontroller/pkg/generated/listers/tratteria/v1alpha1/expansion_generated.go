@@ -26,6 +26,14 @@ type TraTListerExpansion interface{}
 // TraTNamespaceLister.
 type TraTNamespaceListerExpansion interface{}
 
+// TraTExclusionListerExpansion allows custom methods to be added to
+// TraTExclusionLister.
+type TraTExclusionListerExpansion interface{}
+
+// TraTExclusionNamespaceListerExpansion allows custom methods to be added to
+// TraTExclusionNamespaceLister.
+type TraTExclusionNamespaceListerExpansion interface{}
+
 // TratteriaConfigListerExpansion allows custom methods to be added to
 // TratteriaConfigLister.
 type TratteriaConfigListerExpansion interface{}

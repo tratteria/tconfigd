@@ -20,4 +20,6 @@ package v1alpha1
 
 type TraTExpansion interface{}
 
+type TraTExclusionExpansion interface{}
+
 type TratteriaConfigExpansion interface{}

@@ -29,6 +29,7 @@ import (
 type TratteriaV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	TraTsGetter
+	TraTExclusionsGetter
 	TratteriaConfigsGetter
 }
 
@@ -39,6 +40,10 @@ type TratteriaV1alpha1Client struct {
 
 func (c *TratteriaV1alpha1Client) TraTs(namespace string) TraTInterface {
 	return newTraTs(c, namespace)
+}
+
+func (c *TratteriaV1alpha1Client) TraTExclusions(namespace string) TraTExclusionInterface {
+	return newTraTExclusions(c, namespace)
 }
 
 func (c *TratteriaV1alpha1Client) TratteriaConfigs(namespace string) TratteriaConfigInterface {

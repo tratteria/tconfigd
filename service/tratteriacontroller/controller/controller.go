@@ -72,6 +72,13 @@ type TratteriaConfigOperation struct {
 	VersionNumber      int64
 }
 
+type TratteriaExclOperation struct {
+	Type          OperationType
+	NewTraTExcl   *tratteria1alpha1.TraTExclusion
+	OldTraTExcl   *tratteria1alpha1.TraTExclusion
+	VersionNumber int64
+}
+
 type ServiceHash struct {
 	ruleVersionNumber int64
 	mu                sync.RWMutex
@@ -105,8 +112,10 @@ type Controller struct {
 	tratteriaclientset     clientset.Interface
 	traTsLister            listers.TraTLister
 	tratteriaConfigsLister listers.TratteriaConfigLister
+	tratExclusionsLister   listers.TraTExclusionLister
 	traTsSynced            cache.InformerSynced
 	tratteriaConfigsSynced cache.InformerSynced
+	tratExclusionsSynced   cache.InformerSynced
 	workqueue              workqueue.TypedRateLimitingInterface[any]
 	recorder               record.EventRecorder
 	serviceMessageHandler  *servicemessagehandler.ServiceMessageHandler
@@ -121,6 +130,7 @@ func NewController(
 	tratteriaclientset clientset.Interface,
 	traTInformer informers.TraTInformer,
 	tratteriaConfigInformer informers.TratteriaConfigInformer,
+	tratExclusionInformer informers.TraTExclusionInformer,
 	serviceMessageHandler *servicemessagehandler.ServiceMessageHandler,
 	logger *zap.Logger) *Controller {
 
@@ -140,8 +150,10 @@ func NewController(
 		tratteriaclientset:     tratteriaclientset,
 		traTsLister:            traTInformer.Lister(),
 		tratteriaConfigsLister: tratteriaConfigInformer.Lister(),
+		tratExclusionsLister:   tratExclusionInformer.Lister(),
 		traTsSynced:            traTInformer.Informer().HasSynced,
 		tratteriaConfigsSynced: tratteriaConfigInformer.Informer().HasSynced,
+		tratExclusionsSynced:   tratExclusionInformer.Informer().HasSynced,
 		workqueue:              workqueue.NewTypedRateLimitingQueue[any](workqueue.DefaultTypedControllerRateLimiter[any]()),
 		recorder:               recorder,
 		serviceMessageHandler:  serviceMessageHandler,
@@ -161,6 +173,12 @@ func NewController(
 	tratteriaConfigInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    controller.AddFunc,
 		UpdateFunc: controller.UpdateFunc,
+	})
+
+	tratExclusionInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    controller.AddFunc,
+		UpdateFunc: controller.UpdateFunc,
+		DeleteFunc: controller.DeleteFunc,
 	})
 
 	return controller
@@ -183,6 +201,15 @@ func (c *Controller) AddFunc(obj interface{}) {
 		c.workqueue.Add(TratteriaConfigOperation{Type: ADD, NewTratteriaConfig: v, VersionNumber: versionNumber})
 
 		c.logger.Info("Processing TratteriaConfig addition operation.",
+			zap.String("name", v.Name),
+			zap.String("namespace", v.Namespace),
+			zap.Int64("version-number", versionNumber))
+	case *tratteria1alpha1.TraTExclusion:
+		versionNumber := atomic.AddInt64(&c.ruleVersionNumber, 1)
+
+		c.workqueue.Add(TratteriaExclOperation{Type: ADD, NewTraTExcl: v, VersionNumber: versionNumber})
+
+		c.logger.Info("Processing TraTExcl addition operation.",
 			zap.String("name", v.Name),
 			zap.String("namespace", v.Namespace),
 			zap.Int64("version-number", versionNumber))
@@ -242,6 +269,31 @@ func (c *Controller) UpdateFunc(oldObj, newObj interface{}) {
 			zap.String("name", oldV.Name),
 			zap.String("namespace", oldV.Namespace),
 			zap.Int64("version-number", versionNumber))
+	case *tratteria1alpha1.TraTExclusion:
+		newV, ok := newObj.(*tratteria1alpha1.TraTExclusion)
+		if !ok {
+			c.logger.Error("Received unexpected object type", zap.String("expected", "TraTExcl"), zap.Any("got", oldObj))
+
+			return
+		}
+
+		if reflect.DeepEqual(newV.Spec, oldV.Spec) {
+			c.logger.Debug("TraTExcl update ignored, no spec change.",
+				zap.String("name", newV.Name),
+				zap.String("namespace", newV.Namespace),
+			)
+
+			return
+		}
+
+		versionNumber := atomic.AddInt64(&c.ruleVersionNumber, 1)
+
+		c.workqueue.Add(TratteriaExclOperation{Type: UPDATE, NewTraTExcl: newV, OldTraTExcl: oldV, VersionNumber: versionNumber})
+
+		c.logger.Info("Processing TraTExcl update operation.",
+			zap.String("name", oldV.Name),
+			zap.String("namespace", oldV.Namespace),
+			zap.Int64("version-number", versionNumber))
 	default:
 		c.logger.Error("Unknown type incountered for updated operation", zap.Any("oldObj", oldObj), zap.Any("newObj", newObj))
 	}
@@ -257,6 +309,14 @@ func (c *Controller) DeleteFunc(obj interface{}) {
 			zap.String("name", oldV.Name),
 			zap.String("namespace", oldV.Namespace),
 			zap.Int64("version-number", versionNumber))
+	case *tratteria1alpha1.TraTExclusion:
+		versionNumber := atomic.AddInt64(&c.ruleVersionNumber, 1)
+
+		c.workqueue.Add(TratteriaExclOperation{Type: DELETE, OldTraTExcl: oldV, VersionNumber: versionNumber})
+		c.logger.Info("Processing TraTExcl deletion operation.",
+			zap.String("name", oldV.Name),
+			zap.String("namespace", oldV.Namespace),
+			zap.Int64("version-number", versionNumber))
 	case cache.DeletedFinalStateUnknown:
 		switch t := oldV.Obj.(type) {
 		case *tratteria1alpha1.TraT:
@@ -264,6 +324,14 @@ func (c *Controller) DeleteFunc(obj interface{}) {
 
 			c.workqueue.Add(TraTOperation{Type: DELETE, OldTraT: t, VersionNumber: versionNumber})
 			c.logger.Info("Processing TraT deletion operation.",
+				zap.String("name", t.Name),
+				zap.String("namespace", t.Namespace),
+				zap.Int64("version-number", versionNumber))
+		case *tratteria1alpha1.TraTExclusion:
+			versionNumber := atomic.AddInt64(&c.ruleVersionNumber, 1)
+
+			c.workqueue.Add(TratteriaExclOperation{Type: DELETE, OldTraTExcl: t, VersionNumber: versionNumber})
+			c.logger.Info("Processing TraTExcl deletion operation.",
 				zap.String("name", t.Name),
 				zap.String("namespace", t.Namespace),
 				zap.Int64("version-number", versionNumber))
@@ -346,7 +414,7 @@ func (c *Controller) syncHandler(ctx context.Context, obj any) error {
 		case DELETE:
 			return c.handleTraTDeletion(ctx, op.OldTraT, op.VersionNumber)
 		default:
-			return fmt.Errorf("unknown TraT operation type: %s", op.Type)
+			return fmt.Errorf("unknown %s operation on TraT", op.Type)
 		}
 	case TratteriaConfigOperation:
 		switch op.Type {
@@ -355,7 +423,18 @@ func (c *Controller) syncHandler(ctx context.Context, obj any) error {
 		case UPDATE:
 			return c.handleTratteriaConfigUpsert(ctx, op.NewTratteriaConfig, op.VersionNumber)
 		default:
-			return fmt.Errorf("unknown TratteriaConfig operation type: %s", op.Type)
+			return fmt.Errorf("unknown %s operation on TratteriaConfig", op.Type)
+		}
+	case TratteriaExclOperation:
+		switch op.Type {
+		case ADD:
+			return c.handleTraTExclUpsert(ctx, op.NewTraTExcl, op.VersionNumber)
+		case UPDATE:
+			return c.handleTraTExclUpsert(ctx, op.NewTraTExcl, op.VersionNumber)
+		case DELETE:
+			return c.handleTraTExclDeletion(ctx, op.OldTraTExcl, op.VersionNumber)
+		default:
+			return fmt.Errorf("unknown %s operation on TraTExcl", op.Type)
 		}
 	}
 
@@ -376,9 +455,15 @@ func (c *Controller) GetActiveVerificationRules(serviceName string, namespace st
 		return nil, 0, err
 	}
 
+	traTExclRules, err := c.GetActiveTraTExclRules(serviceName, namespace)
+	if err != nil {
+		return nil, 0, err
+	}
+
 	return &tratteria1alpha1.VerificationRules{
 			TratteriaConfigVerificationRule: tratteriaConfigVerificationRule,
 			TraTsVerificationRules:          traTsVerificationRules,
+			TraTExclRule:                    traTExclRules,
 		},
 		activeRuleVersionNumber,
 		nil
