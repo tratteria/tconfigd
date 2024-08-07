@@ -1,27 +1,23 @@
 # tconfigd Components
-This directory holds the source code for tconfigd. Below is an overview of each component and its functionality.
+This directory contains the source code for tconfigd. Below is an overview of tconfigd's components and their functionalities.
 
-### agentsmanager
-This directory manages agents by enabling agent registrations, handling agent heartbeats, and tracking active agents.
+### websocketserver
+This package contains the WebSocket server that manages connections and communications to Tratteria Agents and Tratteria Service.
 
-### api
-This directory implements tconfigd's APIs. It holds the following APIs:
-
-- Agent Registration API
-- Agent Heartbeat API
-
-### configdispatcher
-This directory dispatches configurations to tratteria and tratteria agents.
+### servicemessagehandler
+This package provides a high-level interface to propagate rules and messages to Tratteria Agents and Tratteria Service.
 
 ### tratcontroller
-This directory implements Kubernetes controller for `tratteria.io` custom resources. It hosts controllers for the following resources:
+This package implements Kubernetes controllers for `tratteria.io` custom resources. It hosts controllers for the following resources:
+
 - `tratteria.io/TraT`
+- `tratteria.io/TratteriaConfig`
 - `tratteria.io/TraTExclusion`
 
 ### webhook
-This directory implements Kubernetes Admission Controller Webhooks. It hosts the following webhooks:
+This package implements Kubernetes Admission Controller Webhooks. It hosts the following webhooks:
+
 - Tratteria Agent Injection Mutating Admission Controller Webhook
-- `tratteria.io` custom resources Validating Admission Controller Webhook
 
 ## Contributions
 Contributions to the project are welcome, including feature enhancements, bug fixes, and documentation improvements.
