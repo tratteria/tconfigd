@@ -4,5 +4,6 @@
   ],
   "plugins": [
     "@semantic-release/commit-analyzer"
-  ]
+  ],
+  "dryRun": true
 }
