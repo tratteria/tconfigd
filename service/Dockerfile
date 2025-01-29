@@ -13,8 +13,8 @@ RUN apk --no-cache add ca-certificates
 WORKDIR /app
 COPY --from=builder /app/tconfigd .
 
-LABEL org.opencontainers.image.source=https://github.com/tratteria/tconfigd
-LABEL org.opencontainers.image.description="Tconfigd - Central daemon for distributing and managing Tratteria configurations"
+LABEL org.opencontainers.image.source=https://github.com/tokenetes/tconfigd
+LABEL org.opencontainers.image.description="Tconfigd - Central daemon for distributing and managing Tokenetes configurations"
 LABEL org.opencontainers.image.licenses=Apache
 
 ENTRYPOINT ["./tconfigd"]

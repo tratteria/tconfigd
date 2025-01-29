@@ -18,12 +18,12 @@ const (
 func CreatePodPatch(pod *corev1.Pod, injectInitContainer bool, agentHttpsApiPort int, agentHttpApiPort int, agentInterceptorPort int, spireAgentHostDir string, tconfigdSpiffeId spiffeid.ID) ([]jsonpatch.JsonPatchOperation, error) {
 	var patch []jsonpatch.JsonPatchOperation
 
-	shouldInject, ok := pod.Annotations["tratteria/inject-sidecar"]
+	shouldInject, ok := pod.Annotations["tokenetes/inject-sidecar"]
 	if !ok || shouldInject != "true" {
 		return patch, nil
 	}
 
-	if mode, ok := pod.Annotations["tratteria/agent-mode"]; ok {
+	if mode, ok := pod.Annotations["tokenetes/agent-mode"]; ok {
 		if mode == AGENT_INTERCEPTION_MODE {
 			injectInitContainer = true
 		} else if mode == AGENT_DELEGATION_MODE {
@@ -38,7 +38,7 @@ func CreatePodPatch(pod *corev1.Pod, injectInitContainer bool, agentHttpsApiPort
 	if injectInitContainer {
 		var portOk bool
 
-		servicePort, portOk = pod.Annotations["tratteria/service-port"]
+		servicePort, portOk = pod.Annotations["tokenetes/service-port"]
 
 		if !portOk {
 			return nil, fmt.Errorf("service-port must be specified when running in the interception mode")
@@ -78,8 +78,8 @@ func CreatePodPatch(pod *corev1.Pod, injectInitContainer bool, agentHttpsApiPort
 
 	if injectInitContainer {
 		initContainer := corev1.Container{
-			Name:  "tratteria-agent-init",
-			Image: "ghcr.io/tratteria/tratteria-agent-init:latest",
+			Name:  "tokenetes-agent-init",
+			Image: "ghcr.io/tokenetes/tokenetes-agent-init:latest",
 			Args:  []string{"-i", servicePort, "-p", strconv.Itoa(agentInterceptorPort)},
 			SecurityContext: &corev1.SecurityContext{
 				Capabilities: &corev1.Capabilities{
@@ -109,8 +109,8 @@ func CreatePodPatch(pod *corev1.Pod, injectInitContainer bool, agentHttpsApiPort
 	}
 
 	sidecar := corev1.Container{
-		Name:  "tratteria-agent",
-		Image: "ghcr.io/tratteria/tratteria-agent:latest",
+		Name:  "tokenetes-agent",
+		Image: "ghcr.io/tokenetes/tokenetes-agent:latest",
 		Env: []corev1.EnvVar{
 			{
 				Name:  "SERVICE_PORT",
@@ -122,7 +122,7 @@ func CreatePodPatch(pod *corev1.Pod, injectInitContainer bool, agentHttpsApiPort
 			},
 			{
 				Name:  "TCONFIGD_HOST",
-				Value: "tconfigd.tratteria-system.svc.cluster.local:8443",
+				Value: "tconfigd.tokenetes-system.svc.cluster.local:8443",
 			},
 			{
 				Name:  "TCONFIGD_SPIFFE_ID",

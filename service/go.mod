@@ -1,4 +1,4 @@
-module github.com/tratteria/tconfigd
+module github.com/tokenetes/tconfigd
 
 go 1.22.0
 

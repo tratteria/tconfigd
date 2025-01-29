@@ -73,7 +73,7 @@ func (s *SPIFFEIDFromString) UnmarshalYAML(unmarshal func(interface{}) error) er
 
 type Config struct {
 	SpireAgentHostDir      string             `yaml:"spireAgentHostDir"`
-	TratteriaSpiffeId      SPIFFEIDFromString `yaml:"tratteriaSpiffeId"`
+	TokenetesSpiffeId      SPIFFEIDFromString `yaml:"tokenetesSpiffeId"`
 	EnableTratInterception BoolFromString     `yaml:"enableTratInterception"`
 	AgentApiPort           IntFromString      `yaml:"agentApiPort"`
 	AgentInterceptorPort   IntFromString      `yaml:"agentInterceptorPort"`

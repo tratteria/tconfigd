@@ -1,5 +1,5 @@
 package common
 
 const (
-	TRATTERIA_SERVICE_NAME = "tratteria"
+	TRATTERIA_SERVICE_NAME = "tokenetes"
 )

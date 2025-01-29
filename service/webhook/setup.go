@@ -9,8 +9,8 @@ import (
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"go.uber.org/zap"
 
-	"github.com/tratteria/tconfigd/webhook/handler"
-	"github.com/tratteria/tconfigd/webhook/pkg/tlscreds"
+	"github.com/tokenetes/tconfigd/webhook/handler"
+	"github.com/tokenetes/tconfigd/webhook/pkg/tlscreds"
 )
 
 type Webhook struct {
@@ -53,5 +53,5 @@ func (wh *Webhook) Run() error {
 }
 
 func initializeRoutes(router *mux.Router, handler *handler.Handlers) {
-	router.HandleFunc("/inject-tratteria-agents", handler.InjectTratteriaAgent).Methods("POST")
+	router.HandleFunc("/inject-tokenetes-agents", handler.InjectTokenetesAgent).Methods("POST")
 }
