@@ -121,7 +121,7 @@ func (c *Controller) handleTraTDeletion(ctx context.Context, oldTraT *tokenetes1
 		services[serviceSpec.Name] = true
 	}
 
-	services[common.TRATTERIA_SERVICE_NAME] = true
+	services[common.TOKENETES_SERVICE_NAME] = true
 
 	// TODO: Implement parallel requests using goroutines
 	for service := range services {

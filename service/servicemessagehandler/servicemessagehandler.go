@@ -121,7 +121,7 @@ func (smh *ServiceMessageHandler) DispatchTraTGenerationRule(ctx context.Context
 		return fmt.Errorf("error marshaling generation trat rule: %w", err)
 	}
 
-	err = smh.sendMessage(ctx, common.TRATTERIA_SERVICE_NAME, namespace, websocketserver.MessageTypeTraTGenerationRuleUpsertRequest, jsonData, verisionNumber)
+	err = smh.sendMessage(ctx, common.TOKENETES_SERVICE_NAME, namespace, websocketserver.MessageTypeTraTGenerationRuleUpsertRequest, jsonData, verisionNumber)
 	if err != nil {
 		return fmt.Errorf("error dispatching generation trat rule to tokenetes: %w", err)
 	}
@@ -135,7 +135,7 @@ func (smh *ServiceMessageHandler) DispatchTokenetesConfigGenerationRule(ctx cont
 		return fmt.Errorf("error marshaling generation tokenetes config rule: %w", err)
 	}
 
-	err = smh.sendMessage(ctx, common.TRATTERIA_SERVICE_NAME, namespace, websocketserver.MessageTypeTokenetesConfigGenerationRuleUpsertRequest, jsonData, versionNumber)
+	err = smh.sendMessage(ctx, common.TOKENETES_SERVICE_NAME, namespace, websocketserver.MessageTypeTokenetesConfigGenerationRuleUpsertRequest, jsonData, versionNumber)
 	if err != nil {
 		return fmt.Errorf("error dispatching generation tokenetes config rule to tokenetes: %w", err)
 	}

@@ -506,16 +506,16 @@ func (c *Controller) GetActiveGenerationRules(namespace string) (*tokenetes1alph
 }
 
 func (c *Controller) GetActiveGenerationRulesHash(namespace string) (string, int64, error) {
-	err := c.RecomputeRulesHashesIfNotLatest(common.TRATTERIA_SERVICE_NAME, namespace)
+	err := c.RecomputeRulesHashesIfNotLatest(common.TOKENETES_SERVICE_NAME, namespace)
 	if err != nil {
 		return "", 0, err
 	}
 
-	c.allRulesHashes.namespacesRulesHashes[namespace].servicesRulesHashes[common.TRATTERIA_SERVICE_NAME].mu.RLock()
-	defer c.allRulesHashes.namespacesRulesHashes[namespace].servicesRulesHashes[common.TRATTERIA_SERVICE_NAME].mu.RUnlock()
+	c.allRulesHashes.namespacesRulesHashes[namespace].servicesRulesHashes[common.TOKENETES_SERVICE_NAME].mu.RLock()
+	defer c.allRulesHashes.namespacesRulesHashes[namespace].servicesRulesHashes[common.TOKENETES_SERVICE_NAME].mu.RUnlock()
 
-	return c.allRulesHashes.namespacesRulesHashes[namespace].servicesRulesHashes[common.TRATTERIA_SERVICE_NAME].hash,
-		c.allRulesHashes.namespacesRulesHashes[namespace].servicesRulesHashes[common.TRATTERIA_SERVICE_NAME].ruleVersionNumber,
+	return c.allRulesHashes.namespacesRulesHashes[namespace].servicesRulesHashes[common.TOKENETES_SERVICE_NAME].hash,
+		c.allRulesHashes.namespacesRulesHashes[namespace].servicesRulesHashes[common.TOKENETES_SERVICE_NAME].ruleVersionNumber,
 		nil
 }
 
@@ -559,7 +559,7 @@ func (c *Controller) RecomputeRulesHashesIfNotLatest(serviceName string, namespa
 	// The computed hash is guaranteed to incorporate changes at least up to and including this rule version number
 	ruleVersionNumber := atomic.LoadInt64(&c.ruleVersionNumber)
 
-	if serviceName == common.TRATTERIA_SERVICE_NAME {
+	if serviceName == common.TOKENETES_SERVICE_NAME {
 		activeGenerationRules, _, err := c.GetActiveGenerationRules(namespace)
 		if err != nil {
 			return err
