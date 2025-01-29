@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
-	"github.com/tratteria/tconfigd/webhook/pkg/util"
+	"github.com/tokenetes/tconfigd/webhook/pkg/util"
 
 	"go.uber.org/zap"
 
@@ -35,7 +35,7 @@ func NewHandlers(enableTratInterception bool, agentHttpApiPort int, agentInterce
 	}
 }
 
-func (h *Handlers) InjectTratteriaAgent(w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) InjectTokenetesAgent(w http.ResponseWriter, r *http.Request) {
 	h.logger.Info("Received Agent Injection Request")
 
 	var admissionReview admissionv1.AdmissionReview

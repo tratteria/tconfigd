@@ -1,10 +1,10 @@
 /**
 Rule Propagation Approach(Here, rule means general rules for constructing and validating TraTs.
-It is the combination of all Tratteria resources i.e TraTs, TratteriaConfig, and TraTExclusion):
+It is the combination of all Tokenetes resources i.e TraTs, TokenetesConfig, and TraTExclusion):
 
 When tconfigd starts (or restarts, or when the leader changes if multiple replicas are present), it initializes an
-in-memory global rule version number starting at zero. Similarly, for each WebSocket client (i.e., Tratteria Service
-and Tratteria Agents), it assigns a client rule version number also starting at zero. These rule version numbers
+in-memory global rule version number starting at zero. Similarly, for each WebSocket client (i.e., Tokenetes Service
+and Tokenetes Agents), it assigns a client rule version number also starting at zero. These rule version numbers
 represent the state of the rules, with higher numbers indicating more recent states. These version numbers are
 maintained only in tconfigd's memory and are not relevant to other components.
 
@@ -52,8 +52,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/lestrrat-go/jwx/jwk"
-	"github.com/tratteria/tconfigd/common"
-	tratteria1alpha1 "github.com/tratteria/tconfigd/tratteriacontroller/pkg/apis/tratteria/v1alpha1"
+	"github.com/tokenetes/tconfigd/common"
+	tokenetes1alpha1 "github.com/tokenetes/tconfigd/tokenetescontroller/pkg/apis/tokenetes/v1alpha1"
 	"go.uber.org/zap"
 )
 
@@ -67,10 +67,10 @@ const (
 	MessageTypeTraTVerificationRuleUpsertResponse            MessageType = "TRAT_VERIFICATION_RULE_UPSERT_RESPONSE"
 	MessageTypeTraTGenerationRuleUpsertRequest               MessageType = "TRAT_GENERATION_RULE_UPSERT_REQUEST"
 	MessageTypeTraTGenerationRuleUpsertResponse              MessageType = "TRAT_GENERATION_RULE_UPSERT_RESPONSE"
-	MessageTypeTratteriaConfigVerificationRuleUpsertRequest  MessageType = "TRATTERIA_CONFIG_VERIFICATION_RULE_UPSERT_REQUEST"
-	MessageTypeTratteriaConfigVerificationRuleUpsertResponse MessageType = "TRATTERIA_CONFIG_VERIFICATION_RULE_UPSERT_RESPONSE"
-	MessageTypeTratteriaConfigGenerationRuleUpsertRequest    MessageType = "TRATTERIA_CONFIG_GENERATION_RULE_UPSERT_REQUEST"
-	MessageTypeTratteriaConfigGenerationRuleUpsertResponse   MessageType = "TRATTERIA_CONFIG_GENERATION_RULE_UPSERT_RESPONSE"
+	MessageTypeTokenetesConfigVerificationRuleUpsertRequest  MessageType = "TRATTERIA_CONFIG_VERIFICATION_RULE_UPSERT_REQUEST"
+	MessageTypeTokenetesConfigVerificationRuleUpsertResponse MessageType = "TRATTERIA_CONFIG_VERIFICATION_RULE_UPSERT_RESPONSE"
+	MessageTypeTokenetesConfigGenerationRuleUpsertRequest    MessageType = "TRATTERIA_CONFIG_GENERATION_RULE_UPSERT_REQUEST"
+	MessageTypeTokenetesConfigGenerationRuleUpsertResponse   MessageType = "TRATTERIA_CONFIG_GENERATION_RULE_UPSERT_RESPONSE"
 	MessageTypeRuleReconciliationRequest                     MessageType = "RULE_RECONCILIATION_REQUEST"
 	MessageTypeRuleReconciliationResponse                    MessageType = "RULE_RECONCILIATION_RESPONSE"
 	MessageTypeTraTDeletionRequest                           MessageType = "TRAT_DELETION_REQUEST"
@@ -100,8 +100,8 @@ type Response struct {
 }
 
 type AllActiveRulesPayload struct {
-	VerificationRules *tratteria1alpha1.VerificationRules `json:"verificationRules,omitempty"`
-	GenerationRules   *tratteria1alpha1.GenerationRules   `json:"generationRules,omitempty"`
+	VerificationRules *tokenetes1alpha1.VerificationRules `json:"verificationRules,omitempty"`
+	GenerationRules   *tokenetes1alpha1.GenerationRules   `json:"generationRules,omitempty"`
 }
 
 type ClientManager struct {
@@ -209,9 +209,9 @@ func (cm *ClientManager) reconcileRules() error {
 
 	var activeRuleVersionNumber int64
 
-	var completeGenerationRules *tratteria1alpha1.GenerationRules
+	var completeGenerationRules *tokenetes1alpha1.GenerationRules
 
-	var completeVerificationRules *tratteria1alpha1.VerificationRules
+	var completeVerificationRules *tokenetes1alpha1.VerificationRules
 
 	allActiveRulesPayload := &AllActiveRulesPayload{}
 
@@ -309,8 +309,8 @@ func (cm *ClientManager) handleMessage(message []byte) {
 		cm.handleRequest(message)
 	case MessageTypeTraTVerificationRuleUpsertResponse,
 		MessageTypeTraTGenerationRuleUpsertResponse,
-		MessageTypeTratteriaConfigVerificationRuleUpsertResponse,
-		MessageTypeTratteriaConfigGenerationRuleUpsertResponse,
+		MessageTypeTokenetesConfigVerificationRuleUpsertResponse,
+		MessageTypeTokenetesConfigGenerationRuleUpsertResponse,
 		MessageTypeRuleReconciliationResponse,
 		MessageTypeGetJWKSResponse,
 		MessageTypeTraTDeletionResponse,
@@ -342,33 +342,33 @@ func (cm *ClientManager) handleRequest(message []byte) {
 }
 
 func (cm *ClientManager) handleGetJWKSRequest(request Request) {
-	tratteriaInstances := cm.Server.GetClientManagers(common.TRATTERIA_SERVICE_NAME, cm.Namespace)
-	if len(tratteriaInstances) == 0 {
-		cm.Server.Logger.Warn("No active tratteria instances found", zap.String("namespace", cm.Namespace))
-		cm.sendErrorResponse(request.ID, MessageTypeGetJWKSResponse, http.StatusNotFound, "No active tratteria instances found")
+	tokenetesInstances := cm.Server.GetClientManagers(common.TRATTERIA_SERVICE_NAME, cm.Namespace)
+	if len(tokenetesInstances) == 0 {
+		cm.Server.Logger.Warn("No active tokenetes instances found", zap.String("namespace", cm.Namespace))
+		cm.sendErrorResponse(request.ID, MessageTypeGetJWKSResponse, http.StatusNotFound, "No active tokenetes instances found")
 
 		return
 	}
 
 	allKeys := jwk.NewSet()
 
-	for _, instance := range tratteriaInstances {
+	for _, instance := range tokenetesInstances {
 		response, err := instance.SendRequest(MessageTypeGetJWKSRequest, nil)
 		if err != nil {
-			cm.Server.Logger.Error("Error getting JWKS from a tratteria instance", zap.Error(err))
+			cm.Server.Logger.Error("Error getting JWKS from a tokenetes instance", zap.Error(err))
 
 			continue
 		}
 
 		if response.Status != http.StatusOK {
-			cm.Server.Logger.Error("Received non-OK status code from a tratteria instance", zap.Int("status", response.Status))
+			cm.Server.Logger.Error("Received non-OK status code from a tokenetes instance", zap.Int("status", response.Status))
 
 			continue
 		}
 
 		set, err := jwk.Parse(response.Payload)
 		if err != nil {
-			cm.Server.Logger.Error("Failed to parse JWKS from a tratteria instance", zap.Error(err))
+			cm.Server.Logger.Error("Failed to parse JWKS from a tokenetes instance", zap.Error(err))
 
 			continue
 		}
@@ -383,7 +383,7 @@ func (cm *ClientManager) handleGetJWKSRequest(request Request) {
 	}
 
 	if allKeys.Len() == 0 {
-		cm.Server.Logger.Warn("No valid keys found from any tratteria instance", zap.String("namespace", cm.Namespace))
+		cm.Server.Logger.Warn("No valid keys found from any tokenetes instance", zap.String("namespace", cm.Namespace))
 		cm.sendErrorResponse(request.ID, MessageTypeGetJWKSResponse, http.StatusInternalServerError, "No valid keys found")
 
 		return
@@ -391,7 +391,7 @@ func (cm *ClientManager) handleGetJWKSRequest(request Request) {
 
 	err := cm.sendResponse(request.ID, MessageTypeGetJWKSResponse, http.StatusOK, allKeys)
 	if err != nil {
-		cm.Server.Logger.Error("Error sending JWKS response to tratteria-agent",
+		cm.Server.Logger.Error("Error sending JWKS response to tokenetes-agent",
 			zap.String("request-id", request.ID),
 			zap.String("namespace", cm.Namespace),
 			zap.String("service", cm.Service),

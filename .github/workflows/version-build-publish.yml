@@ -82,7 +82,7 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository }}:${{ env.RELEASE_VERSION }}
             ghcr.io/${{ github.repository }}:latest
-          outputs: type=image,name=target,annotation-index.org.opencontainers.image.description=Tconfigd - Central daemon for distributing and managing Tratteria configurations
+          outputs: type=image,name=target,annotation-index.org.opencontainers.image.description=Tconfigd - Central daemon for distributing and managing Tokenetes configurations
 
       - name: Create GitHub Release
         if: env.RELEASE_VERSION != 'latest'

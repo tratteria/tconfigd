@@ -7,9 +7,9 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/tratteria/tconfigd/common"
-	"github.com/tratteria/tconfigd/tratteriacontroller/pkg/apis/tratteria/v1alpha1"
-	"github.com/tratteria/tconfigd/websocketserver"
+	"github.com/tokenetes/tconfigd/common"
+	"github.com/tokenetes/tconfigd/tokenetescontroller/pkg/apis/tokenetes/v1alpha1"
+	"github.com/tokenetes/tconfigd/websocketserver"
 )
 
 type ServiceMessageHandler struct {
@@ -93,23 +93,23 @@ func (smh *ServiceMessageHandler) DeleteTraT(ctx context.Context, serviceName st
 	return nil
 }
 
-func (smh *ServiceMessageHandler) DispatchTratteriaConfigVerificationRule(ctx context.Context, namespace string, verificationTokenRule *v1alpha1.TratteriaConfigVerificationRule, versionNumber int64) error {
+func (smh *ServiceMessageHandler) DispatchTokenetesConfigVerificationRule(ctx context.Context, namespace string, verificationTokenRule *v1alpha1.TokenetesConfigVerificationRule, versionNumber int64) error {
 	jsonData, err := json.Marshal(verificationTokenRule)
 	if err != nil {
-		return fmt.Errorf("error marshaling verification tratteria config rule: %w", err)
+		return fmt.Errorf("error marshaling verification tokenetes config rule: %w", err)
 	}
 
 	var dispatchErrors []string
 
-	for _, serviceName := range smh.clientsRetriever.GetTratteriaAgentServices(namespace) {
-		err = smh.sendMessage(ctx, serviceName, namespace, websocketserver.MessageTypeTratteriaConfigVerificationRuleUpsertRequest, jsonData, versionNumber)
+	for _, serviceName := range smh.clientsRetriever.GetTokenetesAgentServices(namespace) {
+		err = smh.sendMessage(ctx, serviceName, namespace, websocketserver.MessageTypeTokenetesConfigVerificationRuleUpsertRequest, jsonData, versionNumber)
 		if err != nil {
 			dispatchErrors = append(dispatchErrors, fmt.Sprintf("error dispatching verification token rule to %s service: %v", serviceName, err))
 		}
 	}
 
 	if len(dispatchErrors) > 0 {
-		return fmt.Errorf("error dispatching verification tratteria config rule: %s", strings.Join(dispatchErrors, ", "))
+		return fmt.Errorf("error dispatching verification tokenetes config rule: %s", strings.Join(dispatchErrors, ", "))
 	}
 
 	return nil
@@ -123,21 +123,21 @@ func (smh *ServiceMessageHandler) DispatchTraTGenerationRule(ctx context.Context
 
 	err = smh.sendMessage(ctx, common.TRATTERIA_SERVICE_NAME, namespace, websocketserver.MessageTypeTraTGenerationRuleUpsertRequest, jsonData, verisionNumber)
 	if err != nil {
-		return fmt.Errorf("error dispatching generation trat rule to tratteria: %w", err)
+		return fmt.Errorf("error dispatching generation trat rule to tokenetes: %w", err)
 	}
 
 	return nil
 }
 
-func (smh *ServiceMessageHandler) DispatchTratteriaConfigGenerationRule(ctx context.Context, namespace string, generationTokenRule *v1alpha1.TratteriaConfigGenerationRule, versionNumber int64) error {
+func (smh *ServiceMessageHandler) DispatchTokenetesConfigGenerationRule(ctx context.Context, namespace string, generationTokenRule *v1alpha1.TokenetesConfigGenerationRule, versionNumber int64) error {
 	jsonData, err := json.Marshal(generationTokenRule)
 	if err != nil {
-		return fmt.Errorf("error marshaling generation tratteria config rule: %w", err)
+		return fmt.Errorf("error marshaling generation tokenetes config rule: %w", err)
 	}
 
-	err = smh.sendMessage(ctx, common.TRATTERIA_SERVICE_NAME, namespace, websocketserver.MessageTypeTratteriaConfigGenerationRuleUpsertRequest, jsonData, versionNumber)
+	err = smh.sendMessage(ctx, common.TRATTERIA_SERVICE_NAME, namespace, websocketserver.MessageTypeTokenetesConfigGenerationRuleUpsertRequest, jsonData, versionNumber)
 	if err != nil {
-		return fmt.Errorf("error dispatching generation tratteria config rule to tratteria: %w", err)
+		return fmt.Errorf("error dispatching generation tokenetes config rule to tokenetes: %w", err)
 	}
 
 	return nil

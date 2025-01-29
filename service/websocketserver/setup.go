@@ -15,9 +15,9 @@ import (
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
-	"github.com/tratteria/tconfigd/common"
-	tratteria1alpha1 "github.com/tratteria/tconfigd/tratteriacontroller/pkg/apis/tratteria/v1alpha1"
-	ruleretriever "github.com/tratteria/tconfigd/tratteriacontroller/ruleretriever"
+	"github.com/tokenetes/tconfigd/common"
+	tokenetes1alpha1 "github.com/tokenetes/tconfigd/tokenetescontroller/pkg/apis/tokenetes/v1alpha1"
+	ruleretriever "github.com/tokenetes/tconfigd/tokenetescontroller/ruleretriever"
 	"go.uber.org/zap"
 )
 
@@ -31,13 +31,13 @@ const (
 
 type ClientsRetriever interface {
 	GetClientManagers(service, namespace string) []*ClientManager
-	GetTratteriaAgentServices(namespace string) []string
+	GetTokenetesAgentServices(namespace string) []string
 }
 
 type WebSocketServer struct {
 	ruleRetriever     ruleretriever.RuleRetriever
 	X509Source        *workloadapi.X509Source
-	TratteriaSpiffeId spiffeid.ID
+	TokenetesSpiffeId spiffeid.ID
 	Logger            *zap.Logger
 	ClientManagers    map[string]map[string][]*ClientManager
 	clientsMutex      sync.RWMutex
@@ -46,13 +46,13 @@ type WebSocketServer struct {
 func NewWebSocketServer(
 	ruleRetriever ruleretriever.RuleRetriever,
 	x509Source *workloadapi.X509Source,
-	tratteriaSpiffeId spiffeid.ID,
+	tokenetesSpiffeId spiffeid.ID,
 	logger *zap.Logger,
 ) *WebSocketServer {
 	return &WebSocketServer{
 		ruleRetriever:     ruleRetriever,
 		X509Source:        x509Source,
-		TratteriaSpiffeId: tratteriaSpiffeId,
+		TokenetesSpiffeId: tokenetesSpiffeId,
 		Logger:            logger,
 		ClientManagers:    make(map[string]map[string][]*ClientManager),
 		clientsMutex:      sync.RWMutex{},
@@ -163,9 +163,9 @@ func (wss *WebSocketServer) handleWebSocket(w http.ResponseWriter, r *http.Reque
 	// The retrieved rules are guaranteed to incorporate changes up to and including this version number
 	var activeRuleVersionNumber int64
 
-	var activeGenerationRules *tratteria1alpha1.GenerationRules
+	var activeGenerationRules *tokenetes1alpha1.GenerationRules
 
-	var activeVerificationRules *tratteria1alpha1.VerificationRules
+	var activeVerificationRules *tokenetes1alpha1.VerificationRules
 
 	initialRulesPayload := &AllActiveRulesPayload{}
 
@@ -267,17 +267,17 @@ func (wss *WebSocketServer) GetClientManagers(service, namespace string) []*Clie
 	return nil
 }
 
-func (wss *WebSocketServer) GetTratteriaAgentServices(namespace string) []string {
+func (wss *WebSocketServer) GetTokenetesAgentServices(namespace string) []string {
 	wss.clientsMutex.RLock()
 	defer wss.clientsMutex.RUnlock()
 
-	var tratteriaAgentsServices []string
+	var tokenetesAgentsServices []string
 
 	for service := range wss.ClientManagers {
 		if service != common.TRATTERIA_SERVICE_NAME {
-			tratteriaAgentsServices = append(tratteriaAgentsServices, service)
+			tokenetesAgentsServices = append(tokenetesAgentsServices, service)
 		}
 	}
 
-	return tratteriaAgentsServices
+	return tokenetesAgentsServices
 }

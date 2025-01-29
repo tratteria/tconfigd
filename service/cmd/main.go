@@ -10,12 +10,12 @@ import (
 
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
-	"github.com/tratteria/tconfigd/config"
-	"github.com/tratteria/tconfigd/logging"
-	"github.com/tratteria/tconfigd/spiffe"
-	"github.com/tratteria/tconfigd/tratteriacontroller"
-	"github.com/tratteria/tconfigd/webhook"
-	"github.com/tratteria/tconfigd/websocketserver"
+	"github.com/tokenetes/tconfigd/config"
+	"github.com/tokenetes/tconfigd/logging"
+	"github.com/tokenetes/tconfigd/spiffe"
+	"github.com/tokenetes/tconfigd/tokenetescontroller"
+	"github.com/tokenetes/tconfigd/webhook"
+	"github.com/tokenetes/tconfigd/websocketserver"
 	"go.uber.org/zap"
 )
 
@@ -60,15 +60,15 @@ func main() {
 		mainLogger.Fatal("Error getting tconfigd spiffe id.", zap.Error(err))
 	}
 
-	tratteriaController := tratteriacontroller.NewTratteriaController(logging.GetLogger("controller"))
+	tokenetesController := tokenetescontroller.NewTokenetesController(logging.GetLogger("controller"))
 
-	if err := tratteriaController.Run(); err != nil {
+	if err := tokenetesController.Run(); err != nil {
 		mainLogger.Fatal("Failed to start TraT Controller server.", zap.Error(err))
 	}
 
-	webSocketServer := websocketserver.NewWebSocketServer(tratteriaController.Controller, x509Source, spiffeid.ID(config.TratteriaSpiffeId), logging.GetLogger("websocket-server"))
+	webSocketServer := websocketserver.NewWebSocketServer(tokenetesController.Controller, x509Source, spiffeid.ID(config.TokenetesSpiffeId), logging.GetLogger("websocket-server"))
 
-	tratteriaController.SetClientsRetriever(webSocketServer)
+	tokenetesController.SetClientsRetriever(webSocketServer)
 
 	go func() {
 		if err := webSocketServer.Run(); err != nil {
