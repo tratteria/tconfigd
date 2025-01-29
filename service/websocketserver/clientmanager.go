@@ -67,10 +67,10 @@ const (
 	MessageTypeTraTVerificationRuleUpsertResponse            MessageType = "TRAT_VERIFICATION_RULE_UPSERT_RESPONSE"
 	MessageTypeTraTGenerationRuleUpsertRequest               MessageType = "TRAT_GENERATION_RULE_UPSERT_REQUEST"
 	MessageTypeTraTGenerationRuleUpsertResponse              MessageType = "TRAT_GENERATION_RULE_UPSERT_RESPONSE"
-	MessageTypeTokenetesConfigVerificationRuleUpsertRequest  MessageType = "TRATTERIA_CONFIG_VERIFICATION_RULE_UPSERT_REQUEST"
-	MessageTypeTokenetesConfigVerificationRuleUpsertResponse MessageType = "TRATTERIA_CONFIG_VERIFICATION_RULE_UPSERT_RESPONSE"
-	MessageTypeTokenetesConfigGenerationRuleUpsertRequest    MessageType = "TRATTERIA_CONFIG_GENERATION_RULE_UPSERT_REQUEST"
-	MessageTypeTokenetesConfigGenerationRuleUpsertResponse   MessageType = "TRATTERIA_CONFIG_GENERATION_RULE_UPSERT_RESPONSE"
+	MessageTypeTokenetesConfigVerificationRuleUpsertRequest  MessageType = "TOKENETES_CONFIG_VERIFICATION_RULE_UPSERT_REQUEST"
+	MessageTypeTokenetesConfigVerificationRuleUpsertResponse MessageType = "TOKENETES_CONFIG_VERIFICATION_RULE_UPSERT_RESPONSE"
+	MessageTypeTokenetesConfigGenerationRuleUpsertRequest    MessageType = "TOKENETES_CONFIG_GENERATION_RULE_UPSERT_REQUEST"
+	MessageTypeTokenetesConfigGenerationRuleUpsertResponse   MessageType = "TOKENETES_CONFIG_GENERATION_RULE_UPSERT_RESPONSE"
 	MessageTypeRuleReconciliationRequest                     MessageType = "RULE_RECONCILIATION_REQUEST"
 	MessageTypeRuleReconciliationResponse                    MessageType = "RULE_RECONCILIATION_RESPONSE"
 	MessageTypeTraTDeletionRequest                           MessageType = "TRAT_DELETION_REQUEST"
@@ -184,7 +184,7 @@ func (cm *ClientManager) compareAndReconcileRule(appData string) {
 
 	var activeRuleVersionNumber int64
 
-	if cm.Service == common.TRATTERIA_SERVICE_NAME {
+	if cm.Service == common.TOKENETES_SERVICE_NAME {
 		lateshHash, activeRuleVersionNumber, _ = cm.Server.ruleRetriever.GetActiveGenerationRulesHash(cm.Namespace)
 	} else {
 		lateshHash, activeRuleVersionNumber, _ = cm.Server.ruleRetriever.GetActiveVerificationRulesHash(cm.Service, cm.Namespace)
@@ -215,7 +215,7 @@ func (cm *ClientManager) reconcileRules() error {
 
 	allActiveRulesPayload := &AllActiveRulesPayload{}
 
-	if cm.Service == common.TRATTERIA_SERVICE_NAME {
+	if cm.Service == common.TOKENETES_SERVICE_NAME {
 		completeGenerationRules, activeRuleVersionNumber, err = cm.Server.ruleRetriever.GetActiveGenerationRules(cm.Namespace)
 		if err != nil {
 			cm.Server.Logger.Error("Error getting all active generation rules from controller", zap.Error(err))
@@ -342,7 +342,7 @@ func (cm *ClientManager) handleRequest(message []byte) {
 }
 
 func (cm *ClientManager) handleGetJWKSRequest(request Request) {
-	tokenetesInstances := cm.Server.GetClientManagers(common.TRATTERIA_SERVICE_NAME, cm.Namespace)
+	tokenetesInstances := cm.Server.GetClientManagers(common.TOKENETES_SERVICE_NAME, cm.Namespace)
 	if len(tokenetesInstances) == 0 {
 		cm.Server.Logger.Warn("No active tokenetes instances found", zap.String("namespace", cm.Namespace))
 		cm.sendErrorResponse(request.ID, MessageTypeGetJWKSResponse, http.StatusNotFound, "No active tokenetes instances found")

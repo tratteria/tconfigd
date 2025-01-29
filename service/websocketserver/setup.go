@@ -169,7 +169,7 @@ func (wss *WebSocketServer) handleWebSocket(w http.ResponseWriter, r *http.Reque
 
 	initialRulesPayload := &AllActiveRulesPayload{}
 
-	if serviceName == common.TRATTERIA_SERVICE_NAME {
+	if serviceName == common.TOKENETES_SERVICE_NAME {
 		activeGenerationRules, activeRuleVersionNumber, err = wss.ruleRetriever.GetActiveGenerationRules(namespace)
 		if err != nil {
 			wss.Logger.Error("Error getting initial generation rules from controller", zap.Error(err))
@@ -274,7 +274,7 @@ func (wss *WebSocketServer) GetTokenetesAgentServices(namespace string) []string
 	var tokenetesAgentsServices []string
 
 	for service := range wss.ClientManagers {
-		if service != common.TRATTERIA_SERVICE_NAME {
+		if service != common.TOKENETES_SERVICE_NAME {
 			tokenetesAgentsServices = append(tokenetesAgentsServices, service)
 		}
 	}
